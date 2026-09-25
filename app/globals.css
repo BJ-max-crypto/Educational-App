@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #14213d;
+  --muted: #5b6478;
+  --background: #eef3fb;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-background: var(--background);
+}
+
+body {
+  background: var(--background);
+  color: var(--ink);
+  font-family: var(--font-inter), Inter, sans-serif;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}

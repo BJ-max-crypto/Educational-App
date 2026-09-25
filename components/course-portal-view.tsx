@@ -1,0 +1,159 @@
+"use client";
+
+import Link from "next/link";
+import { AssignmentRow } from "@/components/assignment-row";
+import { GlassCard } from "@/components/glass-card";
+import { MemberAvatar } from "@/components/member-avatar";
+import { StatusChip, type ChipTone } from "@/components/status-chip";
+import { dueDetail, isOverdue } from "@/lib/dates";
+import { useCoursework } from "@/lib/coursework";
+import { members } from "@/lib/mock-data";
+import type { Assignment, AssignmentStatus } from "@/lib/types";
+
+function chipFor(assignment: Assignment, now: Date): { tone: ChipTone; label: string } {
+  if (assignment.status === "submitted") return { tone: "submitted", label: "Submitted" };
+  if (isOverdue(assignment, now)) return { tone: "overdue", label: "Overdue" };
+  const labels: Record<AssignmentStatus, string> = {
+    not_started: "Not started",
+    in_progress: "In progress",
+    submitted: "Submitted",
+  };
+  return {
+    tone: assignment.status,
+    label: labels[assignment.status],
+  };
+}
+
+export function CoursePortalView({ courseId }: { courseId: string }) {
+  const {
+    ready,
+    now,
+    courseById,
+    openAssignments,
+    completedAssignments,
+    toggleDone,
+  } = useCoursework();
+  const course = courseById.get(courseId);
+  const clock = now ?? new Date();
+
+  if (!course) {
+    return (
+      <GlassCard className="p-8">
+        <p className="text-[18px] font-semibold">That course is not on your list.</p>
+        <Link href="/dashboard" className="mt-3 inline-block text-[14px] font-medium text-[#5b6478]">
+          ‹ Dashboard
+        </Link>
+      </GlassCard>
+    );
+  }
+
+  const open = ready ? openAssignments(course.id) : [];
+  const done = ready ? completedAssignments(course.id) : [];
+
+  return (
+    <div>
+      <Link href="/dashboard" className="text-[14px] font-medium text-[#5b6478]">
+        ‹ Dashboard
+      </Link>
+      <div className="mt-3 flex items-center gap-4">
+        <span
+          className="flex size-14 items-center justify-center rounded-[18px] text-[18px] font-bold text-white"
+          style={{ backgroundColor: course.color }}
+        >
+          {course.initials}
+        </span>
+        <div>
+          <h1 className="text-[32px] font-semibold leading-none tracking-[-0.03em] text-[#14213d]">
+            {course.name}
+          </h1>
+          <p className="mt-2 text-[14px] text-[#5b6478]">
+            {course.period ? `${course.teacher} · ${course.period}` : course.teacher}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.95fr)]">
+        <GlassCard className="p-7">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[22px] font-semibold text-[#14213d]">Upcoming</h2>
+            <StatusChip tone="neutral">
+              {open.length} {open.length === 1 ? "item" : "items"}
+            </StatusChip>
+          </div>
+          <div className="mt-4 space-y-3">
+            {open.map((item) => {
+              const chip = chipFor(item, clock);
+              const overdue = isOverdue(item, clock);
+              return (
+                <AssignmentRow
+                  key={item.id}
+                  variant="card"
+                  title={item.title}
+                  done={false}
+                  onToggle={() => toggleDone(item.id)}
+                  detail={dueDetail(item.dueAt, clock)}
+                  detailTone={overdue ? "danger" : "muted"}
+                  chip={<StatusChip tone={chip.tone}>{chip.label}</StatusChip>}
+                />
+              );
+            })}
+            {ready && open.length === 0 ? (
+              <p className="text-[14px] text-[#5b6478]">Nothing coming up.</p>
+            ) : null}
+          </div>
+          {done.length > 0 ? (
+            <div className="mt-6">
+              <h3 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">
+                COMPLETED
+              </h3>
+              <div className="mt-3 space-y-3">
+                {done.map((item) => (
+                  <AssignmentRow
+                    key={item.id}
+                    variant="card"
+                    title={item.title}
+                    done
+                    onToggle={() => toggleDone(item.id)}
+                    chip={<StatusChip tone="submitted">Submitted</StatusChip>}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </GlassCard>
+
+        <GlassCard className="p-7">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[22px] font-semibold text-[#14213d]">Members</h2>
+            <StatusChip tone="neutral">24 members</StatusChip>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {members.map((member) => (
+              <div
+                key={member.id}
+                className="flex flex-col items-center rounded-[22px] bg-white/60 px-2 py-4 text-center"
+              >
+                <MemberAvatar initials={member.initials} color={member.color} size={52} />
+                <p className="mt-2 text-[14px] font-medium text-[#14213d]">{member.name}</p>
+                <p className="text-[12px] text-[#5b6478]">{member.grade}</p>
+              </div>
+            ))}
+            <div className="flex flex-col items-center rounded-[22px] bg-white/60 px-2 py-4 text-center">
+              <span className="flex size-[52px] items-center justify-center rounded-full bg-[#5b6478] text-[14px] font-semibold text-white">
+                +15
+              </span>
+              <p className="mt-2 text-[14px] font-medium text-[#14213d]">more</p>
+              <button
+                type="button"
+                aria-disabled="true"
+                className="text-[12px] text-[#5b6478]"
+              >
+                View all
+              </button>
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
