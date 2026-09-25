@@ -10,7 +10,16 @@ Coursework dashboard for Dashboard, Planner, Profile, and course portals. Clerk 
 4. In the Clerk dashboard, enable email and Google under User & Authentication → Social connections.
 5. This development instance signs in on Clerk's hosted Account Portal (`https://growing-hare-8761.accounts.dev`). Set `NEXT_PUBLIC_CLERK_SIGN_IN_URL` and `NEXT_PUBLIC_CLERK_SIGN_UP_URL` to those hosted URLs. Add the Vercel domain as an allowed redirect / home URL in Clerk → Paths, or sign-in will not return to the app.
 6. To use the in-app `/sign-in` and `/sign-up` pages instead, set those paths in the Clerk dashboard and point the two URL variables at `/sign-in` and `/sign-up`.
-7. Deploy. Signed-out visits to the app are sent to the sign-in URL.
+7. Set `FEED_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`. Keep it stable: changing it makes stored iCal links unreadable.
+8. Deploy. Signed-out visits to the app are sent to the sign-in URL.
+
+## Onboarding
+
+After sign-in, users go to `/onboarding` until they finish a four-question quiz: name, grade (6–12), age, and Schoology iCal link. Users under 13 cannot continue. Age is checked and not stored.
+
+On submit, the server saves `name`, `grade`, and `onboarding_completed_at` on the user's `profiles` row. It saves the iCal link AES-256-GCM encrypted in `feeds.ical_url_encrypted`, with `status = 'pending'`. It then sets `onboardingComplete` in the user's Clerk public metadata, which is what unlocks the app. The link must be on `schoology.com` or a subdomain, and `webcal://` links are accepted. The migration below must be run first, or submitting shows a "database isn't set up" error.
+
+To make someone take the quiz again, remove `onboardingComplete` from their public metadata in Clerk → Users.
 
 ## Database
 
@@ -26,7 +35,7 @@ Then connect Clerk as a third-party auth provider (the JWT-template integration 
 
 Every table is scoped with `auth.jwt()->>'sub'` (the Clerk user id). `auth.uid()` is not used, because that id is not a UUID. `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS and is only read in `lib/supabase/admin.ts`, which is marked server-only. The UI does not call it.
 
-On first sign-in, the app inserts a `profiles` row for that Clerk user. Courses, assignments, and feeds stay empty until sync is added. The screens use placeholder coursework in the browser.
+Finishing onboarding creates the `profiles` and `feeds` rows for that Clerk user. Courses and assignments stay empty until sync is added. The screens use placeholder coursework in the browser.
 
 ## Test auth and RLS
 
@@ -35,7 +44,7 @@ On first sign-in, the app inserts a `profiles` row for that Clerk user. Courses,
 3. Sign up as account A and open Profile. The name and email should be A's.
 4. In another browser (or a private window), sign up as account B.
 5. In the Supabase SQL editor, `select clerk_user_id, name from profiles;` shows both rows.
-6. Each account's Profile page only has that account's name and email. School and grade stay on the placeholder (Northfield High School, grade 11) until profile editing exists.
+6. Each account's Profile page only has that account's name, email, and grade from onboarding. School shows "Not set" until profile editing exists.
 7. To confirm the API cannot cross users, sign in as A, copy the Clerk session token from the browser's Clerk cookie flow or from `await window.Clerk.session.getToken()`, then:
 
 ```bash

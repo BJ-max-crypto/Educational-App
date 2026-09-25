@@ -17,8 +17,9 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 export function ProfileView() {
   const { signOut } = useClerk();
   const { user, courses, upcomingCount, overdueCount } = useCoursework();
-  const school = user.school || "Northfield High School";
-  const grade = user.grade || "11";
+  const school = user.school || null;
+  const grade = user.grade || null;
+  const subtitle = [grade ? `Grade ${grade}` : null, school].filter(Boolean).join(" · ");
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -29,9 +30,7 @@ export function ProfileView() {
         <h1 className="mt-5 text-[26px] font-semibold tracking-[-0.03em] text-[#14213d]">
           {user.name}
         </h1>
-        <p className="mt-2 text-[14px] text-[#5b6478]">
-          Grade {grade} · {school}
-        </p>
+        {subtitle ? <p className="mt-2 text-[14px] text-[#5b6478]">{subtitle}</p> : null}
         <div className="mt-6 grid w-full grid-cols-3">
           <Stat value={String(courses.length)} label="Courses" />
           <Stat value={String(upcomingCount())} label="Upcoming" />
@@ -61,8 +60,8 @@ export function ProfileView() {
           <div className="mt-2">
             <InfoRow label="Full name" value={user.name} />
             <InfoRow label="Email" value={user.email || "No email on this account"} />
-            <InfoRow label="School" value={school} />
-            <InfoRow label="Grade" value={grade} />
+            <InfoRow label="School" value={school ?? "Not set"} />
+            <InfoRow label="Grade" value={grade ?? "Not set"} />
           </div>
         </section>
 

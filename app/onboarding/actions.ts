@@ -1,0 +1,110 @@
+"use server";
+
+import { auth, clerkClient } from "@clerk/nextjs/server";
+import { encryptSecret } from "@/lib/crypto";
+import {
+  validateAge,
+  validateGrade,
+  validateIcalUrl,
+  validateName,
+} from "@/lib/onboarding";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export type OnboardingResult = { ok: true } | { ok: false; error: string };
+
+export async function completeOnboarding(input: {
+  name: string;
+  grade: string;
+  age: string;
+  icalUrl: string;
+}): Promise<OnboardingResult> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Your session ended. Sign in again." };
+
+  const name = validateName(input.name);
+  if ("error" in name) return { ok: false, error: name.error };
+  const grade = validateGrade(input.grade);
+  if ("error" in grade) return { ok: false, error: grade.error };
+  const age = validateAge(input.age);
+  if ("error" in age) return { ok: false, error: age.error };
+  const ical = validateIcalUrl(input.icalUrl);
+  if ("error" in ical) return { ok: false, error: ical.error };
+
+  let encrypted: string;
+  try {
+    encrypted = encryptSecret(ical.value);
+  } catch {
+    return {
+      ok: false,
+      error: "Pane isn't fully set up yet (FEED_ENCRYPTION_KEY is missing). Try again later.",
+    };
+  }
+
+  // The service role is used here, server-side only, and every write is keyed to
+  // the userId Clerk verified above.
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+
+  const existing = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("clerk_user_id", userId)
+    .maybeSingle();
+  if (existing.error) {
+    console.error("onboarding: profile lookup failed", existing.error);
+    return {
+      ok: false,
+      error: "Pane's database isn't set up yet (run supabase/migrations/0001_init.sql). Try again later.",
+    };
+  }
+
+  let profileId = existing.data?.id;
+  if (profileId) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ name: name.value, grade: grade.value, onboarding_completed_at: now })
+      .eq("id", profileId);
+    if (error) {
+      console.error("onboarding: profile update failed", error);
+      return { ok: false, error: "We couldn't save your profile. Try again." };
+    }
+  } else {
+    profileId = crypto.randomUUID();
+    const { error } = await supabase.from("profiles").insert({
+      id: profileId,
+      clerk_user_id: userId,
+      name: name.value,
+      grade: grade.value,
+      onboarding_completed_at: now,
+    });
+    if (error) {
+      console.error("onboarding: profile insert failed", error);
+      return { ok: false, error: "We couldn't save your profile. Try again." };
+    }
+  }
+
+  const feed = await supabase
+    .from("feeds")
+    .select("id")
+    .eq("user_id", profileId)
+    .maybeSingle();
+  const feedWrite = feed.data
+    ? await supabase
+        .from("feeds")
+        .update({ ical_url_encrypted: encrypted, status: "pending", last_error: null })
+        .eq("id", feed.data.id)
+    : await supabase
+        .from("feeds")
+        .insert({ user_id: profileId, ical_url_encrypted: encrypted, status: "pending" });
+  if (feed.error || feedWrite.error) {
+    console.error("onboarding: feed save failed", feed.error ?? feedWrite.error);
+    return { ok: false, error: "We couldn't save your calendar link. Try again." };
+  }
+
+  const clerk = await clerkClient();
+  await clerk.users.updateUserMetadata(userId, {
+    publicMetadata: { onboardingComplete: true, name: name.value, grade: grade.value },
+  });
+
+  return { ok: true };
+}
