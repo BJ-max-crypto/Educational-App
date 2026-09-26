@@ -66,7 +66,13 @@ export async function loadCoursework(db: UserDb | null): Promise<StoredCoursewor
     }));
 
   return {
-    profile: profile.data ?? null,
+    profile: profile.data
+      ? {
+          name: profile.data.name,
+          school: profile.data.school,
+          grade: profile.data.grade,
+        }
+      : null,
     courses: mappedCourses,
     assignments: mappedAssignments,
     feed: feed.data
@@ -78,4 +84,18 @@ export async function loadCoursework(db: UserDb | null): Promise<StoredCoursewor
         }
       : null,
   };
+}
+
+/** Null when the student has no photo, or the avatar column is not migrated yet. */
+export async function loadAvatarUrl(db: UserDb): Promise<string | null> {
+  const { data, error } = await db.supabase
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", db.profileId)
+    .maybeSingle();
+  if (error) {
+    if (!/avatar_url/i.test(error.message)) console.error("loadAvatarUrl", error.message);
+    return null;
+  }
+  return data?.avatar_url ?? null;
 }

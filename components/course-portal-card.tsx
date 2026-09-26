@@ -2,19 +2,21 @@
 
 import Link from "next/link";
 import { dueDetail, isOverdue } from "@/lib/dates";
-import { members } from "@/lib/mock-data";
 import { useCoursework } from "@/lib/coursework";
 import type { Course } from "@/lib/types";
 import { MemberAvatar } from "@/components/member-avatar";
 import { StatusChip } from "@/components/status-chip";
 
 export function CoursePortalCard({ course }: { course: Course }) {
-  const { nextUp, overdueCount, upcomingCount, now } = useCoursework();
+  const { nextUp, overdueCount, upcomingCount, now, classmatesFor } = useCoursework();
   const upcoming = nextUp(course.id);
   const overdue = overdueCount(course.id);
   const count = upcomingCount(course.id);
   const clock = now ?? new Date();
   const upcomingIsOverdue = upcoming ? isOverdue(upcoming, clock) : false;
+  const classmates = classmatesFor(course);
+  const shown = classmates.slice(0, 4);
+  const extra = classmates.length - shown.length;
 
   return (
     <Link
@@ -61,17 +63,22 @@ export function CoursePortalCard({ course }: { course: Course }) {
         <p className="text-[14px] font-medium text-[#14213d]">
           {count} upcoming
         </p>
-        <div className="flex items-center">
-          {members.slice(0, 4).map((member) => (
-            <MemberAvatar
-              key={member.id}
-              initials={member.initials}
-              color={member.color}
-              className="-mr-2"
-            />
-          ))}
-          <span className="pl-3 text-[12px] font-semibold text-[#5b6478]">+21</span>
-        </div>
+        {shown.length > 0 ? (
+          <div className="flex items-center">
+            {shown.map((member) => (
+              <MemberAvatar
+                key={member.profileId}
+                initials={member.initials}
+                color={member.color}
+                imageUrl={member.avatarUrl}
+                className="-mr-2"
+              />
+            ))}
+            {extra > 0 ? (
+              <span className="pl-3 text-[12px] font-semibold text-[#5b6478]">+{extra}</span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </Link>
   );

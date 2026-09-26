@@ -6,7 +6,8 @@ import { getBusyBlocks, type CalendarState } from "@/lib/google-calendar";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidZone, localDate } from "@/lib/timezone";
 import { getUserDb } from "@/lib/user-db";
-import { buildSummaryInput, generateSummary, SummaryError } from "@/lib/weekly-summary";
+import { AI_UNAVAILABLE } from "@/lib/ai-status";
+import { buildSummaryInput, generateSummary } from "@/lib/weekly-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -105,9 +106,7 @@ async function handle(request: NextRequest, refresh: boolean) {
         generatedAt: row?.generated_at ?? null,
         usedCalendar: row?.used_calendar ?? false,
         calendar: calendarInfo(calendar),
-        error: `Couldn't write this week's summary: ${
-          error instanceof SummaryError ? error.message : "something went wrong. Try Refresh."
-        } Your list below is up to date.`,
+        error: AI_UNAVAILABLE,
       });
     }
   }
@@ -138,7 +137,7 @@ async function safely(request: NextRequest, refresh: boolean) {
   } catch (error) {
     console.error("planner summary failed", error);
     return NextResponse.json(
-      { summary: null, generatedAt: null, usedCalendar: false, calendar: { status: "error" }, error: "Couldn't load this week's summary." },
+      { summary: null, generatedAt: null, usedCalendar: false, calendar: { status: "error" }, error: AI_UNAVAILABLE },
       { status: 500 },
     );
   }

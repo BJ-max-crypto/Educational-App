@@ -1,8 +1,11 @@
 "use client";
 
 import { useClerk } from "@clerk/nextjs";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { removeProfilePhoto, setProfilePhoto } from "@/app/(app)/actions";
 import { EditProfileForm } from "@/components/edit-profile-form";
+import { MembersSection } from "@/components/members-section";
 import { GlassCard } from "@/components/glass-card";
 import { GoogleCalendarConnect } from "@/components/google-calendar-connect";
 import { SyncButton, useSyncLabel } from "@/components/sync-status";
@@ -31,9 +34,7 @@ export function ProfileView() {
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <GlassCard className="flex flex-col items-center px-8 py-10 text-center">
-        <span className="flex size-[120px] items-center justify-center rounded-full bg-[#4f7cff] text-[40px] font-semibold text-white">
-          {initials(user.name)}
-        </span>
+        <ProfilePhoto name={user.name} imageUrl={user.avatarUrl} />
         <h1 className="mt-5 text-[26px] font-semibold tracking-[-0.03em] text-[#14213d]">
           {user.name}
         </h1>
@@ -91,6 +92,8 @@ export function ProfileView() {
           )}
         </section>
 
+        <MembersSection />
+
         <section className="rounded-[24px] bg-white/55 px-6 py-5">
           <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">COURSES</h2>
           <div className="mt-3 flex flex-wrap gap-2.5">
@@ -132,6 +135,115 @@ export function ProfileView() {
           </div>
         </section>
       </GlassCard>
+    </div>
+  );
+}
+
+function ProfilePhoto({ name, imageUrl }: { name: string; imageUrl: string | null }) {
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const shown = preview ?? imageUrl;
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+      setError("Use a JPG, PNG, WEBP, or GIF.");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setError("Use a photo smaller than 4 MB.");
+      return;
+    }
+    const local = URL.createObjectURL(file);
+    setPreview(local);
+    const body = new FormData();
+    body.set("photo", file);
+    setPending(true);
+    const result = await setProfilePhoto(body).catch(() => ({
+      ok: false as const,
+      error: "Couldn't save that photo. Try again.",
+    }));
+    setPending(false);
+    if (!result.ok) {
+      setPreview(null);
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function remove() {
+    setError(null);
+    setPending(true);
+    const result = await removeProfilePhoto().catch(() => ({
+      ok: false as const,
+      error: "Couldn't remove that photo. Try again.",
+    }));
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setPreview(null);
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={pending}
+        aria-label="Edit profile photo"
+        className="relative rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#4f7cff]"
+      >
+        {shown ? (
+          <img src={shown} alt={`${name}'s profile photo`} className="size-[120px] rounded-full object-cover" />
+        ) : (
+          <span className="flex size-[120px] items-center justify-center rounded-full bg-[#4f7cff] text-[40px] font-semibold text-white">
+            {initials(name)}
+          </span>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="sr-only"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          void onFile(file);
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={pending}
+        className="mt-4 text-[14px] font-semibold text-[#14213d]"
+      >
+        {pending ? "Saving photo…" : "Edit photo"}
+      </button>
+      {shown ? (
+        <button type="button" onClick={() => void remove()} disabled={pending} className="mt-2 text-[13px] font-semibold text-[#5b6478]">
+          Remove photo
+        </button>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-2 text-[13px] font-medium text-[#e5484d]">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

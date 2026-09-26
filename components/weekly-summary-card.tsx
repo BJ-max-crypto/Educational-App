@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { PlannerSummaryResponse } from "@/app/api/planner-summary/route";
+import { AI_UNAVAILABLE } from "@/lib/ai-status";
 import { GlassCard } from "@/components/glass-card";
 
 type State =
@@ -36,7 +37,7 @@ export function WeeklySummaryCard() {
     let cancelled = false;
     request("GET")
       .then((data) => !cancelled && setState({ phase: "ready", data }))
-      .catch(() => !cancelled && setState({ phase: "failed", message: "Couldn't load this week's summary." }));
+      .catch(() => !cancelled && setState({ phase: "failed", message: AI_UNAVAILABLE }));
     return () => {
       cancelled = true;
     };
@@ -46,7 +47,7 @@ export function WeeklySummaryCard() {
     setRefreshing(true);
     request("POST")
       .then((data) => setState({ phase: "ready", data }))
-      .catch(() => setState({ phase: "failed", message: "Couldn't refresh the summary." }))
+      .catch(() => setState({ phase: "failed", message: AI_UNAVAILABLE }))
       .finally(() => setRefreshing(false));
   }, []);
 
@@ -79,7 +80,14 @@ export function WeeklySummaryCard() {
       ) : null}
 
       {error ? (
-        <p role="alert" className="mt-3 text-[14px] font-medium text-[#e5484d]">
+        <p
+          role={error === AI_UNAVAILABLE ? "status" : "alert"}
+          className={
+            error === AI_UNAVAILABLE
+              ? "mt-3 text-[15px] leading-snug text-[#5b6478]"
+              : "mt-3 text-[14px] font-medium text-[#e5484d]"
+          }
+        >
           {error}
         </p>
       ) : null}

@@ -34,7 +34,7 @@ To make someone take the quiz again, remove `onboardingComplete` from their publ
 - **Removed events** are kept with `missing_from_feed = true` and hidden.
 - Sync status and the last error are on `feeds` and shown under the Dashboard greeting and on Profile.
 
-The Members grid is still placeholder data: the iCal feed has no class roster.
+Classmates are other Pane accounts, not a Schoology roster. Profile → Members is where you set a username, search someone you know, and approve a connection. Both people have to approve. A course then shows the people you're connected with who tagged a course of the same name. Run `supabase/migrations/0005_members.sql` before using it.
 
 ## Planner "This week" summary
 
@@ -67,6 +67,10 @@ Those tables are not scoped to Clerk yet, and the anon key can currently read th
 Then run `supabase/migrations/0002_profiles_without_supabase_auth.sql`. The existing `profiles.id` is a foreign key to Supabase Auth's `auth.users`, which Clerk users never have, so every profile insert fails until that constraint is dropped.
 
 Then run `supabase/migrations/0003_weekly_summary_and_calendar.sql` for the Planner summary cache and Google Calendar busy blocks.
+
+Then run `supabase/migrations/0005_members.sql` for usernames and classmate connections.
+
+Then run `supabase/migrations/0006_profile_avatar.sql` for profile photos. Usernames stay unique: a second person cannot take one that is already saved, even with different capitalization.
 
 Then connect Clerk as a third-party auth provider (the JWT-template integration is deprecated):
 

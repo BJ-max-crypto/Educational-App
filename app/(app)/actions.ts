@@ -99,6 +99,76 @@ export async function updateProfile(input: ProfileInput): Promise<ActionResult> 
   return { ok: true };
 }
 
+const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+const AVATAR_MIGRATION =
+  "Profile photos need a database update (supabase/migrations/0006_profile_avatar.sql). Run it in the Supabase SQL editor, then try again.";
+
+function photoFile(formData: FormData): { file: File } | { error: string } {
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a photo." };
+  if (!PHOTO_TYPES.has(file.type)) return { error: "Use a JPG, PNG, WEBP, or GIF." };
+  if (file.size > MAX_PHOTO_BYTES) return { error: "Use a photo smaller than 4 MB." };
+  return { file };
+}
+
+async function saveAvatarUrl(profileId: string, avatarUrl: string | null, client: Awaited<ReturnType<typeof getUserDb>>) {
+  if (!client) return { ok: false as const, error: "Finish onboarding first." };
+  const { data, error } = await client.supabase
+    .from("profiles")
+    .update({ avatar_url: avatarUrl })
+    .eq("id", profileId)
+    .select("id");
+  if (error || !data?.length) {
+    if (error) console.error("saveAvatarUrl", error.message);
+    if (error && (error.code === "42703" || error.code === "PGRST204" || /avatar_url/i.test(error.message))) {
+      return { ok: false as const, error: AVATAR_MIGRATION };
+    }
+    return { ok: false as const, error: "Couldn't save that photo. Try again." };
+  }
+  return { ok: true as const };
+}
+
+export async function setProfilePhoto(formData: FormData): Promise<ActionResult> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Your session ended. Sign in again." };
+  const parsed = photoFile(formData);
+  if ("error" in parsed) return { ok: false, error: parsed.error };
+
+  try {
+    const db = await getUserDb(userId);
+    if (!db) return { ok: false, error: "Finish onboarding first." };
+    const clerk = await clerkClient();
+    const updated = await clerk.users.updateUserProfileImage(userId, { file: parsed.file });
+    const saved = await saveAvatarUrl(db.profileId, updated.imageUrl, db);
+    if (!saved.ok) return saved;
+  } catch (error) {
+    console.error("setProfilePhoto", error);
+    return { ok: false, error: "Couldn't save that photo. Try again." };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function removeProfilePhoto(): Promise<ActionResult> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Your session ended. Sign in again." };
+  try {
+    const db = await getUserDb(userId);
+    if (!db) return { ok: false, error: "Finish onboarding first." };
+    const clerk = await clerkClient();
+    await clerk.users.deleteUserProfileImage(userId);
+    const saved = await saveAvatarUrl(db.profileId, null, db);
+    if (!saved.ok) return saved;
+  } catch (error) {
+    console.error("removeProfilePhoto", error);
+    return { ok: false, error: "Couldn't remove that photo. Try again." };
+  }
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export type CalendarStatus =
   | { status: "connected"; busyCount: number; fetchedAt: string }
   | { status: "not_connected" }

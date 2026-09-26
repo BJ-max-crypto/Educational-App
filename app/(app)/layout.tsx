@@ -2,7 +2,8 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { AppShell } from "@/components/app-shell";
-import { loadCoursework } from "@/lib/coursework-data";
+import { loadAvatarUrl, loadCoursework } from "@/lib/coursework-data";
+import { loadClassmates } from "@/lib/members";
 import type { OnboardingMetadata } from "@/lib/onboarding";
 import { shouldAutoSync, syncFeed } from "@/lib/sync";
 import { getUserDb } from "@/lib/user-db";
@@ -33,6 +34,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
   }
 
+  const classmates = db ? await loadClassmates(db.profileId) : [];
+  const avatarUrl = db ? await loadAvatarUrl(db) : null;
   const name = data.profile?.name || meta.name || user?.fullName || user?.firstName || "Student";
   const email = user?.primaryEmailAddress?.emailAddress ?? "";
 
@@ -44,8 +47,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         email,
         school: data.profile?.school ?? null,
         grade: data.profile?.grade ?? meta.grade ?? null,
+        avatarUrl,
       }}
       knownTimeZone={timeZone}
+      classmates={classmates}
       courses={data.courses}
       assignments={data.assignments}
       feed={

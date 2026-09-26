@@ -23,12 +23,17 @@ export type Assignment = {
   url?: string;
 };
 
-export type Member = {
-  id: string;
+/** Someone you're connected with. Shown on a course only when you share that class name. */
+export type Classmate = {
+  profileId: string;
   name: string;
+  username: string;
+  grade: string | null;
+  school: string | null;
+  avatarUrl: string | null;
   initials: string;
-  grade: string;
   color: string;
+  courseNames: string[];
 };
 
 export type FeedSummary = {
