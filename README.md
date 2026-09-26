@@ -70,6 +70,8 @@ Then run `supabase/migrations/0003_weekly_summary_and_calendar.sql` for the Plan
 
 Then run `supabase/migrations/0005_members.sql` for usernames and classmate connections.
 
+Then run `supabase/migrations/0006_profile_avatar.sql` for profile photos. Usernames stay unique: a second person cannot take one that is already saved, even with different capitalization.
+
 Then connect Clerk as a third-party auth provider (the JWT-template integration is deprecated):
 
 1. Clerk → Integrations → Supabase, so session tokens include `role: authenticated`.

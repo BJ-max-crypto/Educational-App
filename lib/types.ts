@@ -29,6 +29,8 @@ export type Classmate = {
   name: string;
   username: string;
   grade: string | null;
+  school: string | null;
+  avatarUrl: string | null;
   initials: string;
   color: string;
   courseNames: string[];

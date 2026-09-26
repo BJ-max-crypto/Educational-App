@@ -70,6 +70,7 @@ export function CoursePortalCard({ course }: { course: Course }) {
                 key={member.profileId}
                 initials={member.initials}
                 color={member.color}
+                imageUrl={member.avatarUrl}
                 className="-mr-2"
               />
             ))}

@@ -50,6 +50,7 @@ export type ShellUser = {
   email: string;
   school: string | null;
   grade: string | null;
+  avatarUrl: string | null;
 };
 
 export type TagSuggestions = {

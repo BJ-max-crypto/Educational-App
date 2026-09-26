@@ -48,7 +48,11 @@ export function AppShell({
               aria-label="Profile"
               className="flex size-11 items-center justify-center rounded-full border border-white/90 bg-white/80 text-[16px] font-semibold text-[#14213d] shadow-[0_8px_20px_rgba(51,64,128,0.12)] md:ml-auto"
             >
-              {initial}
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" className="size-11 rounded-full object-cover" />
+              ) : (
+                initial
+              )}
             </Link>
           </div>
           <div className="md:absolute md:left-1/2 md:-translate-x-1/2">

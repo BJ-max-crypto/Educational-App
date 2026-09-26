@@ -177,7 +177,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
                   key={member.profileId}
                   className="flex flex-col items-center rounded-[22px] bg-white/60 px-2 py-4 text-center"
                 >
-                  <MemberAvatar initials={member.initials} color={member.color} size={52} />
+                  <MemberAvatar initials={member.initials} color={member.color} size={52} imageUrl={member.avatarUrl} />
                   <p className="mt-2 text-[14px] font-medium text-[#14213d]">{member.name}</p>
                   <p className="text-[12px] text-[#5b6478]">@{member.username}</p>
                 </div>

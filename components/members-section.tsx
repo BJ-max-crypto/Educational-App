@@ -27,14 +27,30 @@ function gradeLabel(grade: string | null) {
   return grade ? `Grade ${grade}` : null;
 }
 
-function PersonFace({ person, detail }: { person: Classmate; detail?: string | null }) {
-  const meta = [`@${person.username}`, gradeLabel(person.grade), detail].filter(Boolean).join(" · ");
+function PersonFace({
+  person,
+  detail,
+  showSchool,
+}: {
+  person: Classmate;
+  detail?: string | null;
+  showSchool?: boolean;
+}) {
+  const extra = [gradeLabel(person.grade), detail].filter(Boolean).join(" · ");
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <MemberAvatar initials={person.initials} color={person.color} size={40} />
+      <MemberAvatar initials={person.initials} color={person.color} size={40} imageUrl={person.avatarUrl} />
       <span className="min-w-0">
         <span className="block truncate text-[14px] font-medium text-[#14213d]">{person.name}</span>
-        <span className="block truncate text-[12px] text-[#5b6478]">{meta}</span>
+        <span className="block truncate text-[12px] text-[#5b6478]">@{person.username}</span>
+        {showSchool ? (
+          <span className="block truncate text-[12px] text-[#5b6478]">
+            {person.school?.trim() || "No school listed"}
+          </span>
+        ) : null}
+        {!showSchool && extra ? (
+          <span className="block truncate text-[12px] text-[#5b6478]">{extra}</span>
+        ) : null}
       </span>
     </div>
   );
@@ -296,7 +312,7 @@ export function MembersSection() {
                 {visibleHits.map((hit) => (
                   <li key={hit.profileId} role="option" aria-selected={false} className="rounded-[14px] px-2 py-2">
                     <div className="flex items-center justify-between gap-3">
-                      <PersonFace person={hit} />
+                      <PersonFace person={hit} showSchool />
                       <HitAction
                         hit={hit}
                         busy={busy === hit.profileId || busy === hit.connectionId}

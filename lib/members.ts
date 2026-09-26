@@ -31,10 +31,16 @@ function missingSchema(error: { code?: string; message?: string } | null) {
   );
 }
 
-function toClassmate(
-  row: { id: string; name: string | null; username: string | null; grade: string | null },
-  courseNames: string[],
-): Classmate {
+type PersonRow = {
+  id: string;
+  name: string | null;
+  username: string | null;
+  grade: string | null;
+  school: string | null;
+  avatar_url: string | null;
+};
+
+function toClassmate(row: PersonRow, courseNames: string[]): Classmate {
   const name = row.name?.trim() || "Student";
   const username = row.username ?? "";
   return {
@@ -42,10 +48,16 @@ function toClassmate(
     name,
     username,
     grade: row.grade,
+    school: row.school?.trim() || null,
+    avatarUrl: row.avatar_url,
     initials: initials(name),
     color: memberColor(username || row.id),
     courseNames,
   };
+}
+
+function withAvatar(row: Omit<PersonRow, "avatar_url"> & { avatar_url?: string | null }): PersonRow {
+  return { ...row, school: row.school ?? null, avatar_url: row.avatar_url ?? null };
 }
 
 function relationFor(row: ConnectionRow | undefined, profileId: string): {
@@ -69,7 +81,7 @@ async function peopleById(admin: Admin, ids: string[]) {
   const unique = [...new Set(ids)];
   if (unique.length === 0) return new Map<string, Classmate>();
   const [profiles, courses] = await Promise.all([
-    admin.from("profiles").select("id, name, username, grade").in("id", unique),
+    loadPersonRows(admin, unique),
     admin.from("courses").select("user_id, name, is_unsorted").in("user_id", unique).eq("is_unsorted", false),
   ]);
   if (profiles.error) {
@@ -84,7 +96,21 @@ async function peopleById(admin: Admin, ids: string[]) {
     list.push(course.name);
     names.set(course.user_id, list);
   }
-  return new Map((profiles.data ?? []).map((row) => [row.id, toClassmate(row, names.get(row.id) ?? [])]));
+  return new Map((profiles.data ?? []).map((row) => [row.id, toClassmate(withAvatar(row), names.get(row.id) ?? [])]));
+}
+
+async function loadPersonRows(admin: Admin, ids: string[]) {
+  const full = await admin
+    .from("profiles")
+    .select("id, name, username, grade, school, avatar_url")
+    .in("id", ids);
+  if (!full.error) return full;
+  if (!/avatar_url/i.test(full.error.message)) return full;
+  const plain = await admin.from("profiles").select("id, name, username, grade, school").in("id", ids);
+  return {
+    data: (plain.data ?? []).map((row) => ({ ...row, avatar_url: null })),
+    error: plain.error,
+  };
 }
 
 async function linksFor(admin: Admin, profileId: string): Promise<MemberLink[] | null> {
@@ -149,14 +175,7 @@ export async function searchUsernames(profileId: string, raw: string): Promise<M
   const query = raw.trim().toLowerCase().replace(/^@/, "").replace(/[%_\\]/g, "");
   if (query.length < 2 || query.length > 20) return [];
   const admin = createAdminClient();
-  const found = await admin
-    .from("profiles")
-    .select("id, name, username, grade")
-    .not("username", "is", null)
-    .ilike("username", `${query}%`)
-    .neq("id", profileId)
-    .order("username")
-    .limit(8);
+  const found = await searchPersonRows(admin, profileId, query);
   if (found.error) {
     if (missingSchema(found.error)) return "missing";
     console.error("searchUsernames", found.error.message);
@@ -175,21 +194,61 @@ export async function searchUsernames(profileId: string, raw: string): Promise<M
   return (found.data ?? []).flatMap((row) => {
     if (!row.username) return [];
     const relation = relationFor(byOther.get(row.id), profileId);
-    return [{ ...toClassmate(row, []), ...relation }];
+    return [{ ...toClassmate(withAvatar(row), []), ...relation }];
   });
+}
+
+async function searchPersonRows(
+  admin: Admin,
+  profileId: string,
+  query: string,
+): Promise<{ data: PersonRow[] | null; error: { message: string; code?: string } | null }> {
+  const full = await admin
+    .from("profiles")
+    .select("id, name, username, grade, school, avatar_url")
+    .not("username", "is", null)
+    .ilike("username", `${query}%`)
+    .neq("id", profileId)
+    .order("username")
+    .limit(8);
+  if (!full.error) return { data: (full.data ?? []).map(withAvatar), error: null };
+  if (!/avatar_url/i.test(full.error.message)) return { data: null, error: full.error };
+  const plain = await admin
+    .from("profiles")
+    .select("id, name, username, grade, school")
+    .not("username", "is", null)
+    .ilike("username", `${query}%`)
+    .neq("id", profileId)
+    .order("username")
+    .limit(8);
+  if (plain.error) return { data: null, error: plain.error };
+  return { data: (plain.data ?? []).map((row) => withAvatar(row)), error: null };
 }
 
 export async function saveUsername(profileId: string, username: string) {
   const admin = createAdminClient();
-  const { error } = await admin
+  const taken = await admin
     .from("profiles")
-    .update({ username })
-    .eq("id", profileId)
-    .select("id");
-  if (!error) return { ok: true as const };
-  if (error.code === "23505") return { ok: false as const, error: "That username is taken." };
-  if (missingSchema(error)) return { ok: false as const, error: MEMBERS_MIGRATION };
-  console.error("saveUsername", error.message);
+    .select("id")
+    .ilike("username", username)
+    .neq("id", profileId)
+    .limit(1);
+  if (taken.error) {
+    if (missingSchema(taken.error)) return { ok: false as const, error: MEMBERS_MIGRATION };
+    console.error("saveUsername lookup", taken.error.message);
+    return { ok: false as const, error: "Couldn't check that username. Try again." };
+  }
+  if (taken.data && taken.data.length > 0) {
+    return { ok: false as const, error: "That username is already taken." };
+  }
+
+  const { data, error } = await admin.from("profiles").update({ username }).eq("id", profileId).select("id");
+  if (!error && data?.length) return { ok: true as const };
+  if (error?.code === "23505" || (error && /duplicate|unique/i.test(error.message))) {
+    return { ok: false as const, error: "That username is already taken." };
+  }
+  if (error && missingSchema(error)) return { ok: false as const, error: MEMBERS_MIGRATION };
+  if (error) console.error("saveUsername", error.message);
   return { ok: false as const, error: "Couldn't save that username. Try again." };
 }
 
