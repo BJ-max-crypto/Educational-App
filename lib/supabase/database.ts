@@ -131,6 +131,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      weekly_summaries: {
+        Row: {
+          user_id: string;
+          summary: string;
+          for_date: string;
+          time_zone: string;
+          used_calendar: boolean;
+          model: string;
+          generated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          summary: string;
+          for_date: string;
+          time_zone: string;
+          used_calendar?: boolean;
+          model: string;
+          generated_at?: string;
+        };
+        Update: {
+          summary?: string;
+          for_date?: string;
+          time_zone?: string;
+          used_calendar?: boolean;
+          model?: string;
+          generated_at?: string;
+        };
+        Relationships: [];
+      };
+      calendar_busy: {
+        Row: {
+          user_id: string;
+          provider: string;
+          busy: { start: string; end: string }[];
+          range_start: string | null;
+          range_end: string | null;
+          fetched_at: string | null;
+          last_error: string | null;
+        };
+        Insert: {
+          user_id: string;
+          provider?: string;
+          busy?: { start: string; end: string }[];
+          range_start?: string | null;
+          range_end?: string | null;
+          fetched_at?: string | null;
+          last_error?: string | null;
+        };
+        Update: {
+          busy?: { start: string; end: string }[];
+          range_start?: string | null;
+          range_end?: string | null;
+          fetched_at?: string | null;
+          last_error?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

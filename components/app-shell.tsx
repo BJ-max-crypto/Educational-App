@@ -4,17 +4,20 @@ import Link from "next/link";
 import { Background } from "@/components/background";
 import { SaveErrorBanner } from "@/components/sync-status";
 import { TopNav } from "@/components/top-nav";
+import { TimeZoneReporter } from "@/components/time-zone-reporter";
 import { CourseworkProvider, type ShellUser } from "@/lib/coursework";
 import type { Assignment, Course, FeedSummary } from "@/lib/types";
 
 export function AppShell({
   user,
+  knownTimeZone,
   courses,
   assignments,
   feed,
   children,
 }: {
   user: ShellUser;
+  knownTimeZone: string | null;
   courses: Course[];
   assignments: Assignment[];
   feed: FeedSummary | null;
@@ -23,6 +26,7 @@ export function AppShell({
   const initial = user.initial;
   return (
     <CourseworkProvider user={user} courses={courses} assignments={assignments} feed={feed}>
+      <TimeZoneReporter known={knownTimeZone} />
       <Background />
       <div className="relative mx-auto min-h-screen w-full max-w-[1440px]">
         <header className="flex flex-col items-center gap-4 px-4 pt-6 md:h-[108px] md:flex-row md:px-[84px] md:pt-7">

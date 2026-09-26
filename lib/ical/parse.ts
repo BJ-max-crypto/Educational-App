@@ -1,3 +1,5 @@
+import { isValidZone, wallTimeToUtc } from "@/lib/timezone";
+
 export type IcalEvent = {
   uid: string;
   title: string;
@@ -38,41 +40,6 @@ function parseLine(line: string): Property | null {
 
 function unescapeText(value: string) {
   return value.replace(/\\([\\;,nN])/g, (_, ch: string) => (ch === "n" || ch === "N" ? "\n" : ch));
-}
-
-/** Offset of `timeZone` from UTC, in ms, at the given instant. */
-function zoneOffset(instant: number, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(new Date(instant));
-  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
-  return asUtc - instant;
-}
-
-function isValidZone(timeZone: string | undefined): timeZone is string {
-  if (!timeZone) return false;
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Converts a wall-clock time in `timeZone` to a UTC instant. */
-function wallTimeToUtc(fields: number[], timeZone: string) {
-  const [year, month, day, hour, minute, second] = fields;
-  const guess = Date.UTC(year, month - 1, day, hour, minute, second);
-  const first = guess - zoneOffset(guess, timeZone);
-  return guess - zoneOffset(first, timeZone);
 }
 
 /**
@@ -116,9 +83,10 @@ function safeUrl(value: string | null) {
 }
 
 /**
- * Schoology does not document a course field in its calendar export.
- * Use the first of CATEGORIES, LOCATION, or a "Course:" / "Class:" / "Section:" line in
- * the description that is present. Returns null when none is, so the item lands in Unsorted.
+ * Schoology's personal calendar export has no course field (checked against a real feed:
+ * only DTSTAMP, DTSTART, DTEND, UID, URL, SUMMARY, DESCRIPTION). Only explicit labels are
+ * trusted: CATEGORIES, or a "Course:" / "Class:" / "Section:" line in the description.
+ * Returns null otherwise, so the item stays in Unsorted instead of being guessed.
  */
 function courseHint(props: Map<string, Property>, description: string | null) {
   const categories = props.get("CATEGORIES");
@@ -126,18 +94,20 @@ function courseHint(props: Map<string, Property>, description: string | null) {
     const first = unescapeText(categories.value).split(",")[0]?.trim();
     if (first) return first;
   }
-  const location = props.get("LOCATION");
-  if (location) {
-    const value = unescapeText(location.value).trim();
-    if (value) return value;
-  }
   const line = description?.match(/^\s*(?:course|class|section)\s*:\s*(.+)$/im);
   return line ? line[1].trim() : null;
 }
 
-export function parseIcal(text: string): { events: IcalEvent[]; timeZone: string } {
+/**
+ * `fallbackZone` is used for all-day and floating times when the feed names no time zone.
+ * Schoology's personal export names none, so callers pass the student's browser time zone.
+ */
+export function parseIcal(
+  text: string,
+  fallbackZone = "UTC",
+): { events: IcalEvent[]; timeZone: string } {
   const lines = unfold(text);
-  let timeZone = "UTC";
+  let timeZone = "";
   const vtimezones: string[] = [];
   for (const line of lines) {
     const prop = parseLine(line);
@@ -146,10 +116,7 @@ export function parseIcal(text: string): { events: IcalEvent[]; timeZone: string
     if (prop.name === "TZID") vtimezones.push(prop.value.trim());
     if (prop.name === "BEGIN" && prop.value === "VEVENT") break;
   }
-  if (timeZone === "UTC") {
-    const zone = vtimezones.find(isValidZone);
-    if (zone) timeZone = zone;
-  }
+  if (!timeZone) timeZone = vtimezones.find(isValidZone) ?? (isValidZone(fallbackZone) ? fallbackZone : "UTC");
 
   const events: IcalEvent[] = [];
   let current: Map<string, Property> | null = null;

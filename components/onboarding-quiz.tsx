@@ -72,7 +72,10 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
     startTransition(async () => {
       let saved: Awaited<ReturnType<typeof completeOnboarding>>;
       try {
-        saved = await completeOnboarding(answers);
+        saved = await completeOnboarding({
+          ...answers,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
       } catch {
         setError("Something went wrong saving your answers. Try again.");
         return;

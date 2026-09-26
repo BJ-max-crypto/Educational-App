@@ -17,6 +17,12 @@ export function validateName(value: string): Validation<string> {
   return { value: name };
 }
 
+export function validateSchool(value: string): Validation<string | null> {
+  const school = value.trim().replace(/\s+/g, " ");
+  if (school.length > 120) return { error: "Keep the school name under 120 characters." };
+  return { value: school || null };
+}
+
 export function validateGrade(value: string): Validation<string> {
   if (!(GRADES as readonly string[]).includes(value)) return { error: "Pick your grade." };
   return { value };

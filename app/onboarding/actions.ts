@@ -11,10 +11,11 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverConfigProblems } from "@/lib/supabase/env";
 import { syncFeed } from "@/lib/sync";
+import { isValidZone } from "@/lib/timezone";
 
 export type OnboardingResult = { ok: true } | { ok: false; error: string };
 
-type OnboardingInput = { name: string; grade: string; age: string; icalUrl: string };
+type OnboardingInput = { name: string; grade: string; age: string; icalUrl: string; timeZone?: string };
 
 export async function completeOnboarding(input: OnboardingInput): Promise<OnboardingResult> {
   const problems = serverConfigProblems();
@@ -41,6 +42,7 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
   if ("error" in age) return { ok: false, error: age.error };
   const ical = validateIcalUrl(input.icalUrl);
   if ("error" in ical) return { ok: false, error: ical.error };
+  const timeZone = isValidZone(input.timeZone) ? input.timeZone : null;
 
   let encrypted: string;
   try {
@@ -131,10 +133,11 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
   const clerk = await clerkClient();
   await clerk.users.updateUserMetadata(userId, {
     publicMetadata: { onboardingComplete: true, name: name.value, grade: grade.value },
+    ...(timeZone ? { privateMetadata: { timeZone } } : {}),
   });
 
   // A failed first import is shown on the dashboard with a retry, so it does not block onboarding.
-  await syncFeed(profileId).catch((error) => console.error("first sync failed", error));
+  await syncFeed(profileId, { timeZone }).catch((error) => console.error("first sync failed", error));
 
   return { ok: true };
 }

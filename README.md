@@ -11,7 +11,8 @@ Coursework dashboard for Dashboard, Planner, Profile, and course portals. Clerk 
 5. This development instance signs in on Clerk's hosted Account Portal (`https://growing-hare-8761.accounts.dev`). Set `NEXT_PUBLIC_CLERK_SIGN_IN_URL` and `NEXT_PUBLIC_CLERK_SIGN_UP_URL` to those hosted URLs. Add the Vercel domain as an allowed redirect / home URL in Clerk → Paths, or sign-in will not return to the app.
 6. To use the in-app `/sign-in` and `/sign-up` pages instead, set those paths in the Clerk dashboard and point the two URL variables at `/sign-in` and `/sign-up`.
 7. Set `FEED_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`. Keep it stable: changing it makes stored iCal links unreadable.
-8. Deploy. Signed-out visits to the app are sent to the sign-in URL.
+8. Set `ANTHROPIC_API_KEY` for the Planner summary. `ANTHROPIC_MODEL` is optional (default `claude-sonnet-5`).
+9. Deploy. Signed-out visits to the app are sent to the sign-in URL.
 
 ## Onboarding
 
@@ -27,13 +28,35 @@ To make someone take the quiz again, remove `onboardingComplete` from their publ
 
 - **When:** at the end of onboarding, on page load when the last sync is over 30 minutes old (in the background, so the next load shows the result), and from **Sync now** on Dashboard and Profile. Failing feeds are retried at most every 10 minutes.
 - **What is imported:** every event due in the last 14 days or later. Older items are skipped because the feed cannot say what was already turned in.
-- **Courses:** Schoology does not document a course field in its export. Each event's course is taken from `CATEGORIES`, then `LOCATION`, then a `Course:` / `Class:` / `Section:` line in the description. Events with none go to an **Unsorted** course, which is hidden when empty.
-- **Times:** `TZID` and UTC times are converted exactly. All-day items are due 11:59 PM in the calendar's `X-WR-TIMEZONE`.
-- **Status:** iCal has no submission state, so sync never changes `status`. Checking a box saves `done` (shown as Submitted) with `status_source = 'manual'`.
+- **Courses:** Schoology's personal export has **no course field**. A real feed was checked: every event has only `DTSTAMP`, `DTSTART`, `DTEND`, `UID`, `URL`, `SUMMARY`, and `DESCRIPTION`. Only explicit labels are trusted (`CATEGORIES`, or a `Course:` / `Class:` / `Section:` line in the description). Anything else stays in **Unsorted**; nothing is guessed. Real course names need Schoology's authenticated API.
+- **Times:** `TZID` and UTC times are converted exactly. The feed names no time zone, so all-day items use the student's browser time zone (kept in Clerk private metadata) and are due 11:59 PM local.
+- **Status:** iCal has no submission or completion field (checked on the same feed), and a past due date is never treated as done. Sync never writes `status`. The only way status changes is the checkbox, which saves `done` (shown as Submitted) with `status_source = 'manual'`. Knowing what was actually turned in needs Schoology's authenticated API with OAuth, not the calendar URL.
 - **Removed events** are kept with `missing_from_feed = true` and hidden.
 - Sync status and the last error are on `feeds` and shown under the Dashboard greeting and on Profile.
 
 The Members grid is still placeholder data: the iCal feed has no class roster.
+
+## Planner "This week" summary
+
+`/api/planner-summary` builds the input on the server and calls Anthropic there. The key never reaches the browser.
+
+- **Input:** items due in the next 7 days plus overdue ones, with title, course (or "unknown"), type (Schoology assignment vs calendar event, from the URL), due time in the student's time zone, and status.
+- **Calendar:** if Google Calendar is connected, it adds busy blocks and the free windows between them, from 8:00 to 22:00.
+- **Caching:** one summary per local day in `weekly_summaries`. **Refresh** regenerates, at most once a minute.
+- **Errors:** if the call fails, the Planner list still renders and the card shows an error. Nothing is sent to the model when nothing is due.
+
+## Google Calendar (optional)
+
+This uses Clerk's Google connection, not a second OAuth flow. Profile → Google Calendar → **Connect** asks Google for `calendar.readonly`:
+- If the student already signed in with Google, it calls `externalAccount.reauthorize`.
+- Otherwise it links Google with `user.createExternalAccount`.
+
+The server gets the access token from `clerkClient().users.getUserOauthAccessToken(userId, "google")`. Clerk stores the refresh token and swaps in a fresh access token on that call when the old one has expired. Pane never stores Google tokens. It only stores the next 7 days of busy blocks (`calendar_busy`, reused for an hour). If the refresh fails or access is revoked, Profile and the Planner card show **Reconnect**.
+
+Setup:
+1. Google Cloud: enable the **Google Calendar API**. On the OAuth consent screen, add the `.../auth/calendar.readonly` scope. While the app is in Testing, add each student as a test user.
+2. Google Cloud → Credentials → your OAuth client: add Clerk's redirect URI, shown in Clerk → SSO connections → Google (for this dev instance, `https://growing-hare-8761.clerk.accounts.dev/v1/oauth_callback`).
+3. Clerk → SSO connections → Google → **Use custom credentials**: paste the client ID and secret. Clerk's shared dev credentials cannot request extra scopes.
 
 ## Database
 
@@ -42,6 +65,8 @@ This Supabase project already has `profiles`, `courses`, `assignments`, and `fee
 Those tables are not scoped to Clerk yet, and the anon key can currently read them. Run `supabase/migrations/0001_init.sql` once in the Supabase SQL editor. It adds `profiles.clerk_user_id` and replaces the policies so each Clerk user only sees their own rows. It does not drop the existing tables.
 
 Then run `supabase/migrations/0002_profiles_without_supabase_auth.sql`. The existing `profiles.id` is a foreign key to Supabase Auth's `auth.users`, which Clerk users never have, so every profile insert fails until that constraint is dropped.
+
+Then run `supabase/migrations/0003_weekly_summary_and_calendar.sql` for the Planner summary cache and Google Calendar busy blocks.
 
 Then connect Clerk as a third-party auth provider (the JWT-template integration is deprecated):
 

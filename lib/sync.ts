@@ -74,7 +74,10 @@ async function recordFailure(profileId: string, message: string) {
  * query is filtered to `profileId`, which callers resolve from the verified Clerk user id.
  * Assignment status is never overwritten: iCal has no submission state.
  */
-export async function syncFeed(profileId: string): Promise<SyncResult> {
+export async function syncFeed(
+  profileId: string,
+  { timeZone }: { timeZone?: string | null } = {},
+): Promise<SyncResult> {
   const startedAt = new Date();
   const startedIso = startedAt.toISOString();
 
@@ -99,7 +102,7 @@ export async function syncFeed(profileId: string): Promise<SyncResult> {
     const checked = validateIcalUrl(url);
     if ("error" in checked) throw new SyncError(checked.error);
 
-    const { events } = parseIcal(await fetchCalendar(checked.value));
+    const { events } = parseIcal(await fetchCalendar(checked.value), timeZone ?? "UTC");
     const cutoff = startedAt.getTime() - LOOKBACK_MS;
     const items = events.filter((event) => event.dueAt && new Date(event.dueAt).getTime() >= cutoff);
 

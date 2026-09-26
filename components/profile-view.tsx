@@ -1,7 +1,10 @@
 "use client";
 
 import { useClerk } from "@clerk/nextjs";
+import { useState } from "react";
+import { EditProfileForm } from "@/components/edit-profile-form";
 import { GlassCard } from "@/components/glass-card";
+import { GoogleCalendarConnect } from "@/components/google-calendar-connect";
 import { SyncButton, useSyncLabel } from "@/components/sync-status";
 import { initials } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
@@ -19,6 +22,8 @@ export function ProfileView() {
   const { signOut } = useClerk();
   const { user, courses, upcomingCount, overdueCount } = useCoursework();
   const syncLabel = useSyncLabel();
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
   const school = user.school || null;
   const grade = user.grade || null;
   const subtitle = [grade ? `Grade ${grade}` : null, school].filter(Boolean).join(" · ");
@@ -40,8 +45,12 @@ export function ProfileView() {
         </div>
         <button
           type="button"
-          aria-disabled="true"
-          className="mt-8 rounded-full bg-white/95 px-7 py-3 text-[15px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)]"
+          onClick={() => {
+            setEditing(true);
+            setSaved(false);
+          }}
+          disabled={editing}
+          className="mt-8 rounded-full bg-white/95 px-7 py-3 text-[15px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(51,64,128,0.18)] disabled:opacity-60 disabled:hover:translate-y-0 motion-reduce:transition-none"
         >
           Edit profile
         </button>
@@ -59,12 +68,27 @@ export function ProfileView() {
           <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">
             PERSONAL INFO
           </h2>
-          <div className="mt-2">
-            <InfoRow label="Full name" value={user.name} />
-            <InfoRow label="Email" value={user.email || "No email on this account"} />
-            <InfoRow label="School" value={school ?? "Not set"} />
-            <InfoRow label="Grade" value={grade ?? "Not set"} />
-          </div>
+          {editing ? (
+            <EditProfileForm
+              initial={{ name: user.name, school: school ?? "", grade: grade ?? "" }}
+              onDone={(didSave) => {
+                setEditing(false);
+                setSaved(didSave);
+              }}
+            />
+          ) : (
+            <div className="mt-2">
+              {saved ? (
+                <p role="status" className="mb-2 rounded-full bg-[rgba(47,174,134,0.16)] px-3.5 py-1.5 text-[13px] font-semibold text-[#1b7f60]">
+                  Profile saved
+                </p>
+              ) : null}
+              <InfoRow label="Full name" value={user.name} />
+              <InfoRow label="Email" value={user.email || "No email on this account"} />
+              <InfoRow label="School" value={school ?? "Not set"} />
+              <InfoRow label="Grade" value={grade ?? "Not set"} />
+            </div>
+          )}
         </section>
 
         <section className="rounded-[24px] bg-white/55 px-6 py-5">
@@ -103,6 +127,7 @@ export function ProfileView() {
                 <SyncButton />
               </span>
             </div>
+            <GoogleCalendarConnect />
             <InfoRow label="Appearance" value="Light" />
           </div>
         </section>

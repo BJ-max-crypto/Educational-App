@@ -6,6 +6,7 @@ import { loadCoursework } from "@/lib/coursework-data";
 import type { OnboardingMetadata } from "@/lib/onboarding";
 import { shouldAutoSync, syncFeed } from "@/lib/sync";
 import { getUserDb } from "@/lib/user-db";
+import { storedTimeZone } from "@/lib/user-timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const meta = (user?.publicMetadata ?? {}) as OnboardingMetadata;
   if (!meta.onboardingComplete) redirect("/onboarding");
 
+  const timeZone = storedTimeZone(user);
   const db = user ? await getUserDb(user.id) : null;
   let data = await loadCoursework(db);
 
@@ -22,11 +24,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const feed = { last_synced_at: data.feed.lastSyncedAt, updated_at: data.feed.updatedAt };
     if (shouldAutoSync(feed)) {
       if (!data.feed.lastSyncedAt) {
-        await syncFeed(db.profileId).catch((error) => console.error("sync failed", error));
+        await syncFeed(db.profileId, { timeZone }).catch((error) => console.error("sync failed", error));
         data = await loadCoursework(db);
       } else {
         const profileId = db.profileId;
-        after(() => syncFeed(profileId).catch((error) => console.error("sync failed", error)));
+        after(() => syncFeed(profileId, { timeZone }).catch((error) => console.error("sync failed", error)));
       }
     }
   }
@@ -43,6 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         school: data.profile?.school ?? null,
         grade: data.profile?.grade ?? meta.grade ?? null,
       }}
+      knownTimeZone={timeZone}
       courses={data.courses}
       assignments={data.assignments}
       feed={
