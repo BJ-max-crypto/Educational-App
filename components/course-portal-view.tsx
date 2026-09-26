@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AssignmentRow } from "@/components/assignment-row";
+import { CourseSelect } from "@/components/course-select";
 import { GlassCard } from "@/components/glass-card";
 import { MemberAvatar } from "@/components/member-avatar";
 import { StatusChip, type ChipTone } from "@/components/status-chip";
@@ -32,6 +33,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
     openAssignments,
     completedAssignments,
     toggleDone,
+    assignCourse,
   } = useCoursework();
   const course = courseById.get(courseId);
   const clock = now ?? new Date();
@@ -46,6 +48,16 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
       </GlassCard>
     );
   }
+
+  const tagControl = (id: string, title: string) => (
+    <CourseSelect
+      label={`Course for ${title}`}
+      value={course.isUnsorted ? null : course.id}
+      allowUnsorted={!course.isUnsorted}
+      placeholder={course.isUnsorted ? "Tag course…" : "Change course…"}
+      onSelect={(courseId) => void assignCourse([id], courseId)}
+    />
+  );
 
   const open = ready ? openAssignments(course.id) : [];
   const done = ready ? completedAssignments(course.id) : [];
@@ -79,6 +91,14 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
             <StatusChip tone="neutral">
               {open.length} {open.length === 1 ? "item" : "items"}
             </StatusChip>
+            {course.isUnsorted ? (
+              <Link
+                href="/tag"
+                className="ml-auto rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] motion-reduce:transition-none"
+              >
+                Quick tag all
+              </Link>
+            ) : null}
           </div>
           <div className="mt-4 space-y-3">
             {open.map((item) => {
@@ -93,7 +113,12 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
                   onToggle={() => toggleDone(item.id)}
                   detail={dueDetail(item.dueAt, clock)}
                   detailTone={overdue ? "danger" : "muted"}
-                  chip={<StatusChip tone={chip.tone}>{chip.label}</StatusChip>}
+                  chip={
+                    <>
+                      <StatusChip tone={chip.tone}>{chip.label}</StatusChip>
+                      {tagControl(item.id, item.title)}
+                    </>
+                  }
                 />
               );
             })}
@@ -114,7 +139,12 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
                     title={item.title}
                     done
                     onToggle={() => toggleDone(item.id)}
-                    chip={<StatusChip tone="submitted">Submitted</StatusChip>}
+                    chip={
+                      <>
+                        <StatusChip tone="submitted">Submitted</StatusChip>
+                        {tagControl(item.id, item.title)}
+                      </>
+                    }
                   />
                 ))}
               </div>

@@ -10,6 +10,7 @@ export type Course = {
   period?: string;
   color: string;
   initials: string;
+  isUnsorted?: boolean;
 };
 
 export type Assignment = {

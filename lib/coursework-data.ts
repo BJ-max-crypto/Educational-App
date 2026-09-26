@@ -62,6 +62,7 @@ export async function loadCoursework(db: UserDb | null): Promise<StoredCoursewor
       teacher: course.teacher ?? "",
       color: course.color,
       initials: initials(course.name),
+      isUnsorted: course.is_unsorted,
     }));
 
   return {

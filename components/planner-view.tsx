@@ -1,6 +1,7 @@
 "use client";
 
 import { AssignmentRow } from "@/components/assignment-row";
+import { CourseSelect } from "@/components/course-select";
 import { GlassCard } from "@/components/glass-card";
 import { plannerWhen } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
@@ -14,7 +15,7 @@ const sections: { id: PlannerBucket; label: string }[] = [
 ];
 
 export function PlannerView() {
-  const { ready, now, plannerGroups, toggleDone, courseById } = useCoursework();
+  const { ready, now, plannerGroups, toggleDone, courseById, assignCourse } = useCoursework();
   const groups = plannerGroups();
   const total = sections.reduce((sum, section) => sum + groups[section.id].length, 0);
   const clock = now ?? new Date();
@@ -51,6 +52,15 @@ export function PlannerView() {
                       courseName={course?.name}
                       courseColor={course?.color}
                       when={plannerWhen(item.dueAt, clock)}
+                      chip={
+                        course?.isUnsorted ? (
+                          <CourseSelect
+                            label={`Course for ${item.title}`}
+                            value={null}
+                            onSelect={(courseId) => void assignCourse([item.id], courseId)}
+                          />
+                        ) : undefined
+                      }
                     />
                   );
                 })}
