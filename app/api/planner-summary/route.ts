@@ -6,7 +6,7 @@ import { getBusyBlocks, type CalendarState } from "@/lib/google-calendar";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidZone, localDate } from "@/lib/timezone";
 import { getUserDb } from "@/lib/user-db";
-import { buildSummaryInput, generateSummary } from "@/lib/weekly-summary";
+import { buildSummaryInput, generateSummary, SummaryError } from "@/lib/weekly-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +105,9 @@ async function handle(request: NextRequest, refresh: boolean) {
         generatedAt: row?.generated_at ?? null,
         usedCalendar: row?.used_calendar ?? false,
         calendar: calendarInfo(calendar),
-        error: "Couldn't write this week's summary right now. Your list below is up to date.",
+        error: `Couldn't write this week's summary: ${
+          error instanceof SummaryError ? error.message : "something went wrong. Try Refresh."
+        } Your list below is up to date.`,
       });
     }
   }

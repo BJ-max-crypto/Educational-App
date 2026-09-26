@@ -150,9 +150,16 @@ function systemPrompt(usedCalendar: boolean) {
   ].join("\n");
 }
 
+/** Failure with a message that is safe to show the student. */
+export class SummaryError extends Error {}
+
 export async function generateSummary(input: SummaryInput) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
+    throw new SummaryError(
+      "ANTHROPIC_API_KEY isn't set on the server. Add it in Vercel → Settings → Environment Variables, then redeploy.",
+    );
+  }
   const model = process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_MODEL;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -170,10 +177,29 @@ export async function generateSummary(input: SummaryInput) {
     }),
     cache: "no-store",
     signal: AbortSignal.timeout(30_000),
+  }).catch((error: unknown) => {
+    throw new SummaryError(
+      error instanceof Error && error.name === "TimeoutError"
+        ? "The AI service took too long. Try Refresh."
+        : "Couldn't reach the AI service. Try Refresh.",
+    );
   });
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(`Anthropic ${response.status}: ${body.slice(0, 300)}`);
+    console.error("Anthropic error", response.status, body.slice(0, 300));
+    if (response.status === 401 || response.status === 403) {
+      throw new SummaryError("Anthropic rejected ANTHROPIC_API_KEY. Check the key in Vercel, then redeploy.");
+    }
+    if (response.status === 404 || (response.status === 400 && /model/i.test(body))) {
+      throw new SummaryError(`The model "${model}" isn't available for this API key. Set ANTHROPIC_MODEL in Vercel.`);
+    }
+    if (response.status === 400 && /credit|billing/i.test(body)) {
+      throw new SummaryError("The Anthropic account is out of credits.");
+    }
+    if (response.status === 429 || response.status >= 500) {
+      throw new SummaryError("The AI service is busy. Try Refresh in a minute.");
+    }
+    throw new SummaryError(`The AI service returned an error (${response.status}).`);
   }
   const json = (await response.json()) as {
     content?: { type: string; text?: string }[];
