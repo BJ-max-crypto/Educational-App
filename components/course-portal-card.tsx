@@ -19,7 +19,7 @@ export function CoursePortalCard({ course }: { course: Course }) {
   return (
     <Link
       href={`/courses/${course.id}`}
-      className="flex h-full min-h-[250px] flex-col justify-between rounded-[32px] border border-white/90 bg-[#e7eefe]/90 p-[22px] shadow-[0_12px_32px_rgba(51,64,128,0.12)] backdrop-blur-[14px] transition hover:-translate-y-0.5 supports-[backdrop-filter]:bg-[rgba(220,231,255,0.42)]"
+      className="flex h-full min-h-[250px] flex-col justify-between rounded-[32px] border border-white/90 bg-[#e7eefe]/90 p-[22px] shadow-[0_12px_32px_rgba(51,64,128,0.12)] backdrop-blur-[14px] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(51,64,128,0.18)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 supports-[backdrop-filter]:bg-[rgba(220,231,255,0.42)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">

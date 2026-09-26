@@ -33,10 +33,10 @@ export function TopNav() {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-full px-4 py-2.5 text-[15px] leading-none sm:px-6",
+              "rounded-full px-4 py-2.5 text-[15px] leading-none transition-[transform,box-shadow,background-color,color] duration-150 ease-out hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:px-6",
               active
-                ? "bg-white/95 font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)]"
-                : "font-medium text-[#5b6478]",
+                ? "bg-white/95 font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)]"
+                : "font-medium text-[#5b6478] hover:bg-white/60 hover:text-[#14213d] hover:shadow-[0_4px_12px_rgba(51,64,128,0.10)]",
             )}
           >
             {tab.label}

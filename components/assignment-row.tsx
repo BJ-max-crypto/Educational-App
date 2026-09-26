@@ -28,9 +28,11 @@ export function AssignmentRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3",
-        variant === "card" && "rounded-[20px] bg-white/60 px-[18px] py-[14px]",
-        variant === "plain" && "min-h-10 py-1",
+        "flex items-center justify-between gap-3 transition-[transform,box-shadow,background-color] duration-200 ease-out hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        variant === "card" &&
+          "rounded-[20px] bg-white/60 px-[18px] py-[14px] hover:bg-white/75 hover:shadow-[0_8px_20px_rgba(51,64,128,0.12)]",
+        variant === "plain" &&
+          "-mx-2 min-h-10 rounded-[14px] px-2 py-1 hover:bg-white/50 hover:shadow-[0_6px_16px_rgba(51,64,128,0.10)]",
       )}
     >
       <div className="flex min-w-0 items-center gap-3.5">
