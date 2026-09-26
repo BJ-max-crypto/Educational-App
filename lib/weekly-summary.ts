@@ -1,6 +1,12 @@
 import "server-only";
 
 import type { BusyBlock, CalendarState } from "@/lib/google-calendar";
+import {
+  shouldFallbackRequest,
+  summaryRequestFields,
+  summaryTextFromContent,
+  type SummaryRequestMode,
+} from "@/lib/summary-message";
 import { localMidnight, wallTimeToUtc, zonedParts } from "@/lib/timezone";
 import type { Assignment, Course } from "@/lib/types";
 
@@ -65,12 +71,14 @@ export function buildSummaryInput({
   calendar,
   timeZone,
   now,
+  profile,
 }: {
   assignments: Assignment[];
   courses: Course[];
   calendar: CalendarState;
   timeZone: string;
   now: number;
+  profile?: { name: string | null; grade: string | null; school: string | null } | null;
 }): SummaryInput {
   const courseName = new Map(courses.map((course) => [course.id, course.name]));
   const today = localMidnight(now, timeZone);
@@ -96,14 +104,38 @@ export function buildSummaryInput({
     ].join(" | ");
   };
 
+  const homework = week.filter((item) => kindOf(item.url) !== "calendar event");
+  const byDay = new Map<string, number>();
+  for (const item of homework) {
+    const label = dayLabel(new Date(item.dueAt).getTime(), timeZone);
+    byDay.set(label, (byDay.get(label) ?? 0) + 1);
+  }
+  let heaviestDay = "";
+  let heaviestCount = 0;
+  for (const [label, count] of byDay) {
+    if (count > heaviestCount) {
+      heaviestDay = label;
+      heaviestCount = count;
+    }
+  }
+  const grade = profile?.grade?.trim();
+  const student = [profile?.name?.trim(), grade ? `grade ${grade}` : "", profile?.school?.trim()]
+    .filter(Boolean)
+    .join(", ");
+
   const sections = [
     `Today is ${dayLabel(now, timeZone)}, ${timeLabel(now, timeZone)} (${timeZone}).`,
+    ...(student ? [`Student: ${student}.`] : []),
     "",
     `OVERDUE (${overdue.length}):`,
     ...(overdue.length ? overdue.map((item) => line(item, true)) : ["- none"]),
     "",
     `DUE IN THE NEXT 7 DAYS (${week.length}):`,
     ...(week.length ? week.map((item) => line(item, false)) : ["- none"]),
+    "",
+    heaviestDay
+      ? `HEAVIEST DAY: ${heaviestDay} (${heaviestCount} assignment${heaviestCount === 1 ? "" : "s"}, not counting calendar events).`
+      : "HEAVIEST DAY: none.",
   ];
 
   const usedCalendar = calendar.status === "connected";
@@ -137,8 +169,9 @@ function systemPrompt(usedCalendar: boolean) {
   return [
     "You write the short \"This week\" card at the top of a high-school student's planner.",
     "Write 2 to 4 sentences of plain text in second person. No lists, headings, markdown, emoji, or greeting.",
-    "Summarize the workload for the next 7 days and name the heaviest day (the day with the most items due).",
+    "Summarize the workload for the next 7 days. Name the HEAVIEST DAY from the data, and name up to three assignment titles that make that day heavy.",
     "If anything is overdue, say so plainly: give the count and name at most three of the most recent overdue items.",
+    "If a Student line is present, you may use the first name once. Do not invent a name, grade, or school.",
     "Status comes only from the student's own checkmarks in Pane; Pane cannot see what was turned in on Schoology. So describe overdue items as past due and not checked off, not as proof the student is behind, and never say or imply an item is done unless its status is \"marked submitted by the student\".",
     "Use only facts in the data.",
     "Items of type \"calendar event\" are Schoology calendar entries and may not be homework; do not count them as assignments.",
@@ -153,16 +186,25 @@ function systemPrompt(usedCalendar: boolean) {
 /** Failure with a message that is safe to show the student. */
 export class SummaryError extends Error {}
 
-export async function generateSummary(input: SummaryInput) {
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey) {
-    throw new SummaryError(
-      "ANTHROPIC_API_KEY isn't set on the server. Add it in Vercel → Settings → Environment Variables, then redeploy.",
-    );
+function failureForStatus(status: number, body: string, model: string) {
+  console.error("Anthropic error", status, body.slice(0, 300));
+  if (status === 401 || status === 403) {
+    return new SummaryError("Anthropic rejected ANTHROPIC_API_KEY. Check the key in Vercel, then redeploy.");
   }
-  const model = process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_MODEL;
+  if (status === 404 || (status === 400 && /model/i.test(body))) {
+    return new SummaryError(`The model "${model}" isn't available for this API key. Set ANTHROPIC_MODEL in Vercel.`);
+  }
+  if (status === 400 && /credit|billing/i.test(body)) {
+    return new SummaryError("The Anthropic account is out of credits.");
+  }
+  if (status === 429 || status >= 500) {
+    return new SummaryError("The AI service is busy. Try Refresh in a minute.");
+  }
+  return new SummaryError(`The AI service returned an error (${status}).`);
+}
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+async function postSummary(apiKey: string, model: string, input: SummaryInput, mode: SummaryRequestMode) {
+  return fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "x-api-key": apiKey,
@@ -171,12 +213,12 @@ export async function generateSummary(input: SummaryInput) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 400,
+      ...summaryRequestFields(mode),
       system: systemPrompt(input.usedCalendar),
       messages: [{ role: "user", content: input.text }],
     }),
     cache: "no-store",
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(mode === "answer" ? 30_000 : 45_000),
   }).catch((error: unknown) => {
     throw new SummaryError(
       error instanceof Error && error.name === "TimeoutError"
@@ -184,36 +226,39 @@ export async function generateSummary(input: SummaryInput) {
         : "Couldn't reach the AI service. Try Refresh.",
     );
   });
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    console.error("Anthropic error", response.status, body.slice(0, 300));
-    if (response.status === 401 || response.status === 403) {
-      throw new SummaryError("Anthropic rejected ANTHROPIC_API_KEY. Check the key in Vercel, then redeploy.");
-    }
-    if (response.status === 404 || (response.status === 400 && /model/i.test(body))) {
-      throw new SummaryError(`The model "${model}" isn't available for this API key. Set ANTHROPIC_MODEL in Vercel.`);
-    }
-    if (response.status === 400 && /credit|billing/i.test(body)) {
-      throw new SummaryError("The Anthropic account is out of credits.");
-    }
-    if (response.status === 429 || response.status >= 500) {
-      throw new SummaryError("The AI service is busy. Try Refresh in a minute.");
-    }
-    throw new SummaryError(`The AI service returned an error (${response.status}).`);
+}
+
+export async function generateSummary(input: SummaryInput) {
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (!apiKey) {
+    throw new SummaryError(
+      "ANTHROPIC_API_KEY isn't set on the server. Add it in Vercel → Settings → Environment Variables, then redeploy.",
+    );
   }
-  const json = (await response.json()) as {
-    content?: { type: string; text?: string }[];
-    stop_reason?: string;
-  };
-  let text = (json.content ?? [])
-    .filter((block) => block.type === "text")
-    .map((block) => block.text ?? "")
-    .join(" ")
-    .trim();
-  if (json.stop_reason === "max_tokens") {
-    const end = Math.max(text.lastIndexOf(". "), text.lastIndexOf("! "), text.lastIndexOf("? "));
-    text = end > 0 ? text.slice(0, end + 1) : "";
+  const model = process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_MODEL;
+  const modes: SummaryRequestMode[] = ["answer", "fallback"];
+
+  for (const mode of modes) {
+    const response = await postSummary(apiKey, model, input, mode);
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      if (mode === "answer" && shouldFallbackRequest(response.status, body)) continue;
+      throw failureForStatus(response.status, body, model);
+    }
+    const json = (await response.json().catch(() => null)) as {
+      content?: { type: string; text?: string }[];
+      stop_reason?: string;
+    } | null;
+    const text = summaryTextFromContent(json?.content, json?.stop_reason);
+    if (text) return { summary: text, model };
+    console.error(
+      "Anthropic returned no text",
+      mode,
+      json?.stop_reason,
+      (json?.content ?? []).map((block) => block.type),
+    );
+    if (json?.stop_reason !== "max_tokens") break;
   }
-  if (!text) throw new Error("Anthropic returned no usable text");
-  return { summary: text, model };
+
+  throw new SummaryError("The AI service replied without a summary. Try Refresh.");
 }
