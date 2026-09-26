@@ -3,24 +3,34 @@
 import Link from "next/link";
 import { CoursePortalCard } from "@/components/course-portal-card";
 import { GlassCard } from "@/components/glass-card";
+import { ShareButton } from "@/components/share-button";
 import { SyncStatus } from "@/components/sync-status";
 import { firstName, greeting } from "@/lib/dates";
+import { countDoneThisWeek } from "@/lib/share-stats";
 import { useCoursework } from "@/lib/coursework";
 
 export function DashboardView() {
-  const { user, courses, ready, now, overdueCount, dueThisWeekCount, unsortedAssignments } =
+  const { user, courses, assignments, ready, now, overdueCount, dueThisWeekCount, unsortedAssignments } =
     useCoursework();
+  const clock = now ?? new Date();
+  const overdue = overdueCount();
+  const done = countDoneThisWeek(assignments, clock);
 
   return (
     <div>
-      <h1 className="text-[36px] font-semibold leading-[44px] tracking-[-0.03em] text-[#14213d]">
-        {ready && now ? `${greeting(now)}, ${firstName(user.name)}` : `Hello, ${firstName(user.name)}`}
-      </h1>
-      <p className="mt-1.5 text-[15px] text-[#5b6478]">
-        {ready
-          ? `${overdueCount()} overdue and ${dueThisWeekCount()} due this week`
-          : "Loading your courses"}
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[36px] font-semibold leading-[44px] tracking-[-0.03em] text-[#14213d]">
+            {ready && now ? `${greeting(now)}, ${firstName(user.name)}` : `Hello, ${firstName(user.name)}`}
+          </h1>
+          <p className="mt-1.5 text-[15px] text-[#5b6478]">
+            {ready
+              ? `${overdue} overdue and ${dueThisWeekCount()} due this week`
+              : "Loading your courses"}
+          </p>
+        </div>
+        {ready ? <ShareButton overdue={overdue} done={done} /> : null}
+      </div>
       <SyncStatus className="mt-3" />
       {unsortedAssignments.length > 0 ? (
         <div className="mt-5 flex max-w-[720px] flex-wrap items-center gap-3 rounded-[22px] border border-white/90 bg-white/60 px-5 py-3.5">
