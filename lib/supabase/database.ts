@@ -8,6 +8,7 @@ export type Database = {
           name: string | null;
           school: string | null;
           grade: string | null;
+          username: string | null;
           onboarding_completed_at: string | null;
           created_at: string;
           updated_at: string;
@@ -18,6 +19,7 @@ export type Database = {
           name?: string | null;
           school?: string | null;
           grade?: string | null;
+          username?: string | null;
           onboarding_completed_at?: string | null;
         };
         Update: {
@@ -25,6 +27,7 @@ export type Database = {
           name?: string | null;
           school?: string | null;
           grade?: string | null;
+          username?: string | null;
           onboarding_completed_at?: string | null;
         };
         Relationships: [];
@@ -176,6 +179,30 @@ export type Database = {
         };
         Update: {
           course_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      member_connections: {
+        Row: {
+          id: string;
+          requester_id: string;
+          addressee_id: string;
+          status: "pending" | "accepted" | "declined";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          requester_id: string;
+          addressee_id: string;
+          status?: "pending" | "accepted" | "declined";
+          updated_at?: string;
+        };
+        Update: {
+          requester_id?: string;
+          addressee_id?: string;
+          status?: "pending" | "accepted" | "declined";
           updated_at?: string;
         };
         Relationships: [];

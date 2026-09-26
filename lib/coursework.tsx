@@ -18,10 +18,12 @@ import {
   suggestForCourse,
   syncNow,
 } from "@/app/(app)/actions";
+import { classmatesInCourse } from "@/lib/classmates";
 import { dueThisWeek, initials, isOverdue, isSubmitted, plannerBucket } from "@/lib/dates";
 import type {
   Assignment,
   AssignmentStatus,
+  Classmate,
   Course,
   FeedSummary,
   PlannerBucket,
@@ -61,6 +63,8 @@ type CourseworkValue = {
   ready: boolean;
   now: Date | null;
   user: ShellUser;
+  classmates: Classmate[];
+  classmatesFor: (course: Course) => Classmate[];
   courses: Course[];
   assignments: Assignment[];
   courseById: Map<string, Course>;
@@ -100,12 +104,14 @@ function sortByDue(items: Assignment[]) {
 
 export function CourseworkProvider({
   user,
+  classmates,
   courses: storedCourses,
   assignments: stored,
   feed,
   children,
 }: {
   user: ShellUser;
+  classmates: Classmate[];
   courses: Course[];
   assignments: Assignment[];
   feed: FeedSummary | null;
@@ -277,6 +283,10 @@ export function CourseworkProvider({
       ready: now !== null,
       now,
       user,
+      classmates,
+      classmatesFor(course) {
+        return classmatesInCourse(classmates, course);
+      },
       courses,
       assignments,
       courseById,
@@ -360,6 +370,7 @@ export function CourseworkProvider({
     tagSuggestions,
     assignCourse,
     assignments,
+    classmates,
     courseById,
     courses,
     createCourse,

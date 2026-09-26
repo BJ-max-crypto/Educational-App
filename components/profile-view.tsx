@@ -3,6 +3,7 @@
 import { useClerk } from "@clerk/nextjs";
 import { useState } from "react";
 import { EditProfileForm } from "@/components/edit-profile-form";
+import { MembersSection } from "@/components/members-section";
 import { GlassCard } from "@/components/glass-card";
 import { GoogleCalendarConnect } from "@/components/google-calendar-connect";
 import { SyncButton, useSyncLabel } from "@/components/sync-status";
@@ -90,6 +91,8 @@ export function ProfileView() {
             </div>
           )}
         </section>
+
+        <MembersSection />
 
         <section className="rounded-[24px] bg-white/55 px-6 py-5">
           <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">COURSES</h2>

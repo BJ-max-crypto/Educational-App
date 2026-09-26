@@ -8,7 +8,6 @@ import { MemberAvatar } from "@/components/member-avatar";
 import { StatusChip, type ChipTone } from "@/components/status-chip";
 import { dueDetail, isOverdue } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
-import { members } from "@/lib/mock-data";
 import type { Assignment, AssignmentStatus } from "@/lib/types";
 
 function chipFor(assignment: Assignment, now: Date): { tone: ChipTone; label: string } {
@@ -36,6 +35,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
     assignCourse,
     findSimilar,
     unsortedAssignments,
+    classmatesFor,
   } = useCoursework();
   const course = courseById.get(courseId);
   const clock = now ?? new Date();
@@ -63,6 +63,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
 
   const open = ready ? openAssignments(course.id) : [];
   const done = ready ? completedAssignments(course.id) : [];
+  const classmates = classmatesFor(course);
 
   return (
     <div>
@@ -165,33 +166,36 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
         <GlassCard className="p-7">
           <div className="flex items-center gap-3">
             <h2 className="text-[22px] font-semibold text-[#14213d]">Members</h2>
-            <StatusChip tone="neutral">24 members</StatusChip>
+            <StatusChip tone="neutral">
+              {classmates.length} {classmates.length === 1 ? "member" : "members"}
+            </StatusChip>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {members.map((member) => (
-              <div
-                key={member.id}
-                className="flex flex-col items-center rounded-[22px] bg-white/60 px-2 py-4 text-center"
-              >
-                <MemberAvatar initials={member.initials} color={member.color} size={52} />
-                <p className="mt-2 text-[14px] font-medium text-[#14213d]">{member.name}</p>
-                <p className="text-[12px] text-[#5b6478]">{member.grade}</p>
-              </div>
-            ))}
-            <div className="flex flex-col items-center rounded-[22px] bg-white/60 px-2 py-4 text-center">
-              <span className="flex size-[52px] items-center justify-center rounded-full bg-[#5b6478] text-[14px] font-semibold text-white">
-                +15
-              </span>
-              <p className="mt-2 text-[14px] font-medium text-[#14213d]">more</p>
-              <button
-                type="button"
-                aria-disabled="true"
-                className="text-[12px] text-[#5b6478]"
-              >
-                View all
-              </button>
+          {classmates.length > 0 ? (
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {classmates.map((member) => (
+                <div
+                  key={member.profileId}
+                  className="flex flex-col items-center rounded-[22px] bg-white/60 px-2 py-4 text-center"
+                >
+                  <MemberAvatar initials={member.initials} color={member.color} size={52} />
+                  <p className="mt-2 text-[14px] font-medium text-[#14213d]">{member.name}</p>
+                  <p className="text-[12px] text-[#5b6478]">@{member.username}</p>
+                </div>
+              ))}
             </div>
-          </div>
+          ) : (
+            <p className="mt-4 text-[14px] leading-relaxed text-[#5b6478]">
+              {course.isUnsorted ? (
+                "Classmates show up once this is a real course. "
+              ) : (
+                "Nobody you know is in this class. "
+              )}
+              <Link href="/profile#members" className="font-semibold text-[#14213d] underline-offset-2 hover:underline">
+                You can add people
+              </Link>
+              .
+            </p>
+          )}
         </GlassCard>
       </div>
     </div>
