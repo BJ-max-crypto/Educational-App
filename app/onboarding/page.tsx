@@ -1,8 +1,10 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Background } from "@/components/background";
+import { GlassCard } from "@/components/glass-card";
 import { OnboardingQuiz } from "@/components/onboarding-quiz";
 import type { OnboardingMetadata } from "@/lib/onboarding";
+import { serverConfigProblems } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,8 @@ export default async function OnboardingPage() {
   const meta = (user?.publicMetadata ?? {}) as OnboardingMetadata;
   if (meta.onboardingComplete) redirect("/dashboard");
 
+  const problems = serverConfigProblems();
+
   return (
     <div className="relative min-h-screen">
       <Background />
@@ -20,7 +24,21 @@ export default async function OnboardingPage() {
           Pane
         </p>
         <div className="flex flex-1 items-center">
-          <OnboardingQuiz defaultName={user?.fullName ?? ""} />
+          {problems.length > 0 ? (
+            <GlassCard className="w-full p-7 sm:p-9">
+              <h1 className="text-[22px] font-semibold text-[#14213d]">Pane isn&apos;t set up yet</h1>
+              <p className="mt-2 text-[14px] text-[#5b6478]">
+                Fix these in Vercel → Settings → Environment Variables, then redeploy:
+              </p>
+              <ul className="mt-4 list-disc space-y-1.5 pl-5 text-[14px] font-medium text-[#e5484d]">
+                {problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            </GlassCard>
+          ) : (
+            <OnboardingQuiz defaultName={user?.fullName ?? ""} />
+          )}
         </div>
       </div>
     </div>

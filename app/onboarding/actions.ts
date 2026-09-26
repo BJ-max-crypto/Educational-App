@@ -9,16 +9,27 @@ import {
   validateName,
 } from "@/lib/onboarding";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { serverConfigProblems } from "@/lib/supabase/env";
 import { syncFeed } from "@/lib/sync";
 
 export type OnboardingResult = { ok: true } | { ok: false; error: string };
 
-export async function completeOnboarding(input: {
-  name: string;
-  grade: string;
-  age: string;
-  icalUrl: string;
-}): Promise<OnboardingResult> {
+type OnboardingInput = { name: string; grade: string; age: string; icalUrl: string };
+
+export async function completeOnboarding(input: OnboardingInput): Promise<OnboardingResult> {
+  const problems = serverConfigProblems();
+  if (problems.length > 0) {
+    return { ok: false, error: `Pane isn't set up yet: ${problems.join(" ")}` };
+  }
+  try {
+    return await saveOnboarding(input);
+  } catch (error) {
+    console.error("onboarding failed", error);
+    return { ok: false, error: "Something went wrong saving your answers. Try again." };
+  }
+}
+
+async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult> {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Your session ended. Sign in again." };
 
@@ -53,9 +64,12 @@ export async function completeOnboarding(input: {
     .maybeSingle();
   if (existing.error) {
     console.error("onboarding: profile lookup failed", existing.error);
+    const badKey = existing.error.code === "PGRST301" || /jwt|api key|permission/i.test(existing.error.message);
     return {
       ok: false,
-      error: "Pane's database isn't set up yet (run supabase/migrations/0001_init.sql). Try again later.",
+      error: badKey
+        ? "Supabase rejected SUPABASE_SERVICE_ROLE_KEY. Check it in Vercel's environment variables."
+        : "Pane's database isn't set up yet (run supabase/migrations/0001_init.sql). Try again later.",
     };
   }
 
@@ -120,7 +134,7 @@ export async function completeOnboarding(input: {
   });
 
   // A failed first import is shown on the dashboard with a retry, so it does not block onboarding.
-  await syncFeed(profileId);
+  await syncFeed(profileId).catch((error) => console.error("first sync failed", error));
 
   return { ok: true };
 }

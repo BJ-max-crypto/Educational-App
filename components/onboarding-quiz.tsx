@@ -70,13 +70,18 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
       return;
     }
     startTransition(async () => {
-      const saved = await completeOnboarding(answers);
+      let saved: Awaited<ReturnType<typeof completeOnboarding>>;
+      try {
+        saved = await completeOnboarding(answers);
+      } catch {
+        setError("Something went wrong saving your answers. Try again.");
+        return;
+      }
       if (!saved.ok) {
         setError(saved.error);
         return;
       }
       router.replace("/dashboard");
-      router.refresh();
     });
   }
 

@@ -40,12 +40,18 @@ export async function getUserDb(clerkUserId: string): Promise<UserDb | null> {
     // Fall through to the admin client.
   }
 
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("clerk_user_id", clerkUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return { supabase: admin, profileId: data.id, viaRls: false };
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", clerkUserId)
+      .maybeSingle();
+    if (error) console.error("getUserDb: profile lookup failed", error.message);
+    if (error || !data) return null;
+    return { supabase: admin, profileId: data.id, viaRls: false };
+  } catch (error) {
+    console.error("getUserDb: admin client unavailable", error);
+    return null;
+  }
 }

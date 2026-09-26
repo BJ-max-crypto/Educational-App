@@ -22,11 +22,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const feed = { last_synced_at: data.feed.lastSyncedAt, updated_at: data.feed.updatedAt };
     if (shouldAutoSync(feed)) {
       if (!data.feed.lastSyncedAt) {
-        await syncFeed(db.profileId);
+        await syncFeed(db.profileId).catch((error) => console.error("sync failed", error));
         data = await loadCoursework(db);
       } else {
         const profileId = db.profileId;
-        after(() => syncFeed(profileId));
+        after(() => syncFeed(profileId).catch((error) => console.error("sync failed", error)));
       }
     }
   }

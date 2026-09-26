@@ -75,11 +75,11 @@ async function recordFailure(profileId: string, message: string) {
  * Assignment status is never overwritten: iCal has no submission state.
  */
 export async function syncFeed(profileId: string): Promise<SyncResult> {
-  const supabase = createAdminClient();
   const startedAt = new Date();
   const startedIso = startedAt.toISOString();
 
   try {
+    const supabase = createAdminClient();
     const { data: feed, error: feedError } = await supabase
       .from("feeds")
       .select("ical_url_encrypted")
