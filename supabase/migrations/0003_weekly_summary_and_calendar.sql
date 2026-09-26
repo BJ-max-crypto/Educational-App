@@ -52,3 +52,6 @@ create policy "calendar_busy_select_own"
         and profiles.clerk_user_id = (select auth.jwt()->>'sub')
     )
   );
+
+-- Make the new tables visible to the Supabase API right away.
+notify pgrst, 'reload schema';
