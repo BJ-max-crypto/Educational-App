@@ -30,4 +30,10 @@ export type Member = {
   color: string;
 };
 
+export type FeedSummary = {
+  status: "pending" | "ok" | "error";
+  lastSyncedAt: string | null;
+  lastError: string | null;
+};
+
 export type PlannerBucket = "overdue" | "today" | "tomorrow" | "week";

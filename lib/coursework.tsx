@@ -1,60 +1,26 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
   useContext,
   useMemo,
+  useState,
   useSyncExternalStore,
+  useTransition,
 } from "react";
+import { setAssignmentStatus, syncNow } from "@/app/(app)/actions";
 import { dueThisWeek, isOverdue, isSubmitted, plannerBucket } from "@/lib/dates";
-import { buildAssignments, courseById, courses } from "@/lib/mock-data";
-import type { Assignment, AssignmentStatus, Course, PlannerBucket } from "@/lib/types";
+import type {
+  Assignment,
+  AssignmentStatus,
+  Course,
+  FeedSummary,
+  PlannerBucket,
+} from "@/lib/types";
 
-const STORAGE_KEY = "pane-assignment-status";
-const STATUS_EVENT = "pane-status";
-const EMPTY_OVERRIDES: Record<string, AssignmentStatus> = {};
-
-let overridesCache: Record<string, AssignmentStatus> = EMPTY_OVERRIDES;
-let overridesRaw = "";
 let nowStamp = "";
-
-function subscribeOverrides(onStoreChange: () => void) {
-  window.addEventListener(STATUS_EVENT, onStoreChange);
-  window.addEventListener("storage", onStoreChange);
-  return () => {
-    window.removeEventListener(STATUS_EVENT, onStoreChange);
-    window.removeEventListener("storage", onStoreChange);
-  };
-}
-
-function getOverridesSnapshot() {
-  const raw = window.localStorage.getItem(STORAGE_KEY) ?? "";
-  if (raw === overridesRaw) return overridesCache;
-  overridesRaw = raw;
-  if (!raw) {
-    overridesCache = EMPTY_OVERRIDES;
-    return overridesCache;
-  }
-  try {
-    overridesCache = JSON.parse(raw) as Record<string, AssignmentStatus>;
-  } catch {
-    overridesCache = EMPTY_OVERRIDES;
-  }
-  return overridesCache;
-}
-
-function getServerOverrides() {
-  return EMPTY_OVERRIDES;
-}
-
-function writeOverrides(next: Record<string, AssignmentStatus>) {
-  const raw = JSON.stringify(next);
-  window.localStorage.setItem(STORAGE_KEY, raw);
-  overridesRaw = raw;
-  overridesCache = next;
-  window.dispatchEvent(new Event(STATUS_EVENT));
-}
 
 function subscribeNow() {
   return () => {};
@@ -69,7 +35,7 @@ function getServerNow() {
   return "";
 }
 
-type ShellUser = {
+export type ShellUser = {
   name: string;
   initial: string;
   email: string;
@@ -84,6 +50,11 @@ type CourseworkValue = {
   courses: Course[];
   assignments: Assignment[];
   courseById: Map<string, Course>;
+  feed: FeedSummary | null;
+  syncing: boolean;
+  syncError: string | null;
+  saveError: string | null;
+  sync: () => void;
   toggleDone: (id: string) => void;
   openAssignments: (courseId: string) => Assignment[];
   completedAssignments: (courseId: string) => Assignment[];
@@ -104,37 +75,70 @@ function sortByDue(items: Assignment[]) {
 
 export function CourseworkProvider({
   user,
+  courses,
+  assignments: stored,
+  feed,
   children,
 }: {
   user: ShellUser;
+  courses: Course[];
+  assignments: Assignment[];
+  feed: FeedSummary | null;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const nowIso = useSyncExternalStore(subscribeNow, getNowSnapshot, getServerNow);
-  const overrides = useSyncExternalStore(
-    subscribeOverrides,
-    getOverridesSnapshot,
-    getServerOverrides,
-  );
   const now = useMemo(() => (nowIso ? new Date(nowIso) : null), [nowIso]);
+  const [overrides, setOverrides] = useState<Record<string, AssignmentStatus>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncing, startSync] = useTransition();
 
-  const assignments = useMemo(() => {
-    if (!now) return [];
-    return buildAssignments(now).map((assignment) => {
-      const status = overrides[assignment.id];
-      if (!status) return assignment;
-      return { ...assignment, status, statusSource: "manual" as const };
-    });
-  }, [now, overrides]);
+  const assignments = useMemo(
+    () =>
+      stored.map((assignment) => {
+        const status = overrides[assignment.id];
+        if (!status || status === assignment.status) return assignment;
+        return { ...assignment, status, statusSource: "manual" as const };
+      }),
+    [stored, overrides],
+  );
+
+  const courseById = useMemo(
+    () => new Map(courses.map((course) => [course.id, course])),
+    [courses],
+  );
 
   const toggleDone = useCallback(
     (id: string) => {
-      const base = buildAssignments(now ?? new Date()).find((item) => item.id === id);
-      const existing = overrides[id] ?? base?.status ?? "not_started";
-      const next: AssignmentStatus = existing === "submitted" ? "not_started" : "submitted";
-      writeOverrides({ ...overrides, [id]: next });
+      const current = assignments.find((item) => item.id === id);
+      if (!current) return;
+      const previous = overrides[id];
+      const next: AssignmentStatus = current.status === "submitted" ? "not_started" : "submitted";
+      setSaveError(null);
+      setOverrides((all) => ({ ...all, [id]: next }));
+      void setAssignmentStatus(id, next).then((result) => {
+        if (result.ok) return;
+        setSaveError(result.error);
+        setOverrides((all) => {
+          const copy = { ...all };
+          if (previous) copy[id] = previous;
+          else delete copy[id];
+          return copy;
+        });
+      });
     },
-    [now, overrides],
+    [assignments, overrides],
   );
+
+  const sync = useCallback(() => {
+    setSyncError(null);
+    startSync(async () => {
+      const result = await syncNow();
+      if (!result.ok) setSyncError(result.error);
+      router.refresh();
+    });
+  }, [router]);
 
   const value = useMemo<CourseworkValue>(() => {
     const clock = now ?? new Date();
@@ -145,6 +149,11 @@ export function CourseworkProvider({
       courses,
       assignments,
       courseById,
+      feed,
+      syncing,
+      syncError,
+      saveError,
+      sync,
       toggleDone,
       openAssignments(courseId) {
         return sortByDue(
@@ -196,7 +205,7 @@ export function CourseworkProvider({
         return groups;
       },
     };
-  }, [assignments, now, toggleDone, user]);
+  }, [assignments, courseById, courses, feed, now, saveError, sync, syncError, syncing, toggleDone, user]);
 
   return <CourseworkContext.Provider value={value}>{children}</CourseworkContext.Provider>;
 }

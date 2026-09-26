@@ -9,6 +9,7 @@ import {
   validateName,
 } from "@/lib/onboarding";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { syncFeed } from "@/lib/sync";
 
 export type OnboardingResult = { ok: true } | { ok: false; error: string };
 
@@ -79,6 +80,13 @@ export async function completeOnboarding(input: {
     });
     if (error) {
       console.error("onboarding: profile insert failed", error);
+      if (error.code === "23503") {
+        return {
+          ok: false,
+          error:
+            "Pane's database needs one more update (run supabase/migrations/0002_profiles_without_supabase_auth.sql). Try again after.",
+        };
+      }
       return { ok: false, error: "We couldn't save your profile. Try again." };
     }
   }
@@ -91,7 +99,12 @@ export async function completeOnboarding(input: {
   const feedWrite = feed.data
     ? await supabase
         .from("feeds")
-        .update({ ical_url_encrypted: encrypted, status: "pending", last_error: null })
+        .update({
+          ical_url_encrypted: encrypted,
+          status: "pending",
+          last_error: null,
+          last_synced_at: null,
+        })
         .eq("id", feed.data.id)
     : await supabase
         .from("feeds")
@@ -105,6 +118,9 @@ export async function completeOnboarding(input: {
   await clerk.users.updateUserMetadata(userId, {
     publicMetadata: { onboardingComplete: true, name: name.value, grade: grade.value },
   });
+
+  // A failed first import is shown on the dashboard with a retry, so it does not block onboarding.
+  await syncFeed(profileId);
 
   return { ok: true };
 }

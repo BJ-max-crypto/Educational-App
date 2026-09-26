@@ -2,6 +2,7 @@
 
 import { useClerk } from "@clerk/nextjs";
 import { GlassCard } from "@/components/glass-card";
+import { SyncButton, useSyncLabel } from "@/components/sync-status";
 import { initials } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
 
@@ -17,6 +18,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 export function ProfileView() {
   const { signOut } = useClerk();
   const { user, courses, upcomingCount, overdueCount } = useCoursework();
+  const syncLabel = useSyncLabel();
   const school = user.school || null;
   const grade = user.grade || null;
   const subtitle = [grade ? `Grade ${grade}` : null, school].filter(Boolean).join(" · ");
@@ -90,7 +92,17 @@ export function ProfileView() {
           </h2>
           <div className="mt-2">
             <InfoRow label="Notifications" value="On" />
-            <InfoRow label="Calendar sync" value="Connected" />
+            <div className="flex items-center justify-between gap-4 border-b border-white/70 py-2.5 last:border-b-0">
+              <span className="text-[14px] text-[#5b6478]">Calendar sync</span>
+              <span className="flex items-center gap-3">
+                <span
+                  className={`text-right text-[14px] font-medium ${syncLabel.error ? "text-[#e5484d]" : "text-[#14213d]"}`}
+                >
+                  {syncLabel.text}
+                </span>
+                <SyncButton />
+              </span>
+            </div>
             <InfoRow label="Appearance" value="Light" />
           </div>
         </section>

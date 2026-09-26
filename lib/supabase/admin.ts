@@ -5,8 +5,8 @@ import type { Database } from "@/lib/supabase/database";
 import { supabaseUrl } from "@/lib/supabase/env";
 
 /**
- * Bypasses RLS. Import only from server code that is doing a trusted admin job.
- * The coursework UI does not use this client.
+ * Bypasses RLS. Import only from server code, and scope every query to a profile
+ * resolved from the Clerk user id that `auth()` verified.
  */
 export function createAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -99,6 +99,7 @@ export type Database = {
           last_seen_in_feed_at?: string | null;
           missing_from_feed?: boolean;
           course_id?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -122,6 +123,7 @@ export type Database = {
           last_error?: string | null;
         };
         Update: {
+          updated_at?: string;
           ical_url_encrypted?: string | null;
           last_synced_at?: string | null;
           status?: "pending" | "ok" | "error";

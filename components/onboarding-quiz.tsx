@@ -166,7 +166,7 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
             disabled={pending}
             className="rounded-full bg-[#14213d] px-7 py-3 text-[15px] font-semibold text-white shadow-[0_8px_20px_rgba(20,33,61,0.2)] disabled:opacity-60"
           >
-            {last ? (pending ? "Saving…" : "Finish") : "Next"}
+            {last ? (pending ? "Importing your calendar…" : "Finish") : "Next"}
           </button>
         </div>
       </form>

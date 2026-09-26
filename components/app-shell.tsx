@@ -2,26 +2,27 @@
 
 import Link from "next/link";
 import { Background } from "@/components/background";
+import { SaveErrorBanner } from "@/components/sync-status";
 import { TopNav } from "@/components/top-nav";
-import { CourseworkProvider } from "@/lib/coursework";
+import { CourseworkProvider, type ShellUser } from "@/lib/coursework";
+import type { Assignment, Course, FeedSummary } from "@/lib/types";
 
 export function AppShell({
-  name,
-  initial,
-  email,
-  school,
-  grade,
+  user,
+  courses,
+  assignments,
+  feed,
   children,
 }: {
-  name: string;
-  initial: string;
-  email: string;
-  school: string | null;
-  grade: string | null;
+  user: ShellUser;
+  courses: Course[];
+  assignments: Assignment[];
+  feed: FeedSummary | null;
   children: React.ReactNode;
 }) {
+  const initial = user.initial;
   return (
-    <CourseworkProvider user={{ name, initial, email, school, grade }}>
+    <CourseworkProvider user={user} courses={courses} assignments={assignments} feed={feed}>
       <Background />
       <div className="relative mx-auto min-h-screen w-full max-w-[1440px]">
         <header className="flex flex-col items-center gap-4 px-4 pt-6 md:h-[108px] md:flex-row md:px-[84px] md:pt-7">
@@ -41,7 +42,10 @@ export function AppShell({
             <TopNav />
           </div>
         </header>
-        <main className="px-4 pb-16 pt-4 md:px-[84px] md:pt-2">{children}</main>
+        <main className="px-4 pb-16 pt-4 md:px-[84px] md:pt-2">
+          <SaveErrorBanner />
+          {children}
+        </main>
       </div>
     </CourseworkProvider>
   );

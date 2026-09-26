@@ -1,6 +1,6 @@
 # Pane
 
-Coursework dashboard for Dashboard, Planner, Profile, and course portals. Clerk handles sign-in. Supabase stores per-user rows. The screens currently run on placeholder assignments so the app is usable before Schoology sync.
+Coursework dashboard for Dashboard, Planner, Profile, and course portals. Clerk handles sign-in. Supabase stores per-user rows. Courses and assignments come from each student's Schoology iCal feed.
 
 ## Deploy on Vercel
 
@@ -17,15 +17,31 @@ Coursework dashboard for Dashboard, Planner, Profile, and course portals. Clerk 
 
 After sign-in, users go to `/onboarding` until they finish a four-question quiz: name, grade (6–12), age, and Schoology iCal link. Users under 13 cannot continue. Age is checked and not stored.
 
-On submit, the server saves `name`, `grade`, and `onboarding_completed_at` on the user's `profiles` row. It saves the iCal link AES-256-GCM encrypted in `feeds.ical_url_encrypted`, with `status = 'pending'`. It then sets `onboardingComplete` in the user's Clerk public metadata, which is what unlocks the app. The link must be on `schoology.com` or a subdomain, and `webcal://` links are accepted. The migration below must be run first, or submitting shows a "database isn't set up" error.
+On submit, the server saves `name`, `grade`, and `onboarding_completed_at` on the user's `profiles` row. It saves the iCal link AES-256-GCM encrypted in `feeds.ical_url_encrypted`, with `status = 'pending'`. It then sets `onboardingComplete` in the user's Clerk public metadata, which is what unlocks the app. The link must be on `schoology.com` or a subdomain, and `webcal://` links are accepted. The first sync runs before the quiz closes. Both migrations below must be run first, or submitting shows a "database" error.
 
 To make someone take the quiz again, remove `onboardingComplete` from their public metadata in Clerk → Users.
 
+## Schoology sync
+
+`lib/sync.ts` downloads the feed, parses it (`lib/ical/parse.ts`), and upserts into `courses` and `assignments`.
+
+- **When:** at the end of onboarding, on page load when the last sync is over 30 minutes old (in the background, so the next load shows the result), and from **Sync now** on Dashboard and Profile. Failing feeds are retried at most every 10 minutes.
+- **What is imported:** every event due in the last 14 days or later. Older items are skipped because the feed cannot say what was already turned in.
+- **Courses:** Schoology does not document a course field in its export. Each event's course is taken from `CATEGORIES`, then `LOCATION`, then a `Course:` / `Class:` / `Section:` line in the description. Events with none go to an **Unsorted** course, which is hidden when empty.
+- **Times:** `TZID` and UTC times are converted exactly. All-day items are due 11:59 PM in the calendar's `X-WR-TIMEZONE`.
+- **Status:** iCal has no submission state, so sync never changes `status`. Checking a box saves `done` (shown as Submitted) with `status_source = 'manual'`.
+- **Removed events** are kept with `missing_from_feed = true` and hidden.
+- Sync status and the last error are on `feeds` and shown under the Dashboard greeting and on Profile.
+
+The Members grid is still placeholder data: the iCal feed has no class roster.
+
 ## Database
 
-This Supabase project already has `profiles`, `courses`, `assignments`, and `feeds`. `profiles.id` is a UUID. The other tables point at it with `user_id`. Assignment status in the database is `not_started | in_progress | done`. The screen says Submitted; map that to `done` when sync is added.
+This Supabase project already has `profiles`, `courses`, `assignments`, and `feeds`. `profiles.id` is a UUID. The other tables point at it with `user_id`. Assignment status in the database is `not_started | in_progress | done`. The screen says Submitted for `done`.
 
 Those tables are not scoped to Clerk yet, and the anon key can currently read them. Run `supabase/migrations/0001_init.sql` once in the Supabase SQL editor. It adds `profiles.clerk_user_id` and replaces the policies so each Clerk user only sees their own rows. It does not drop the existing tables.
+
+Then run `supabase/migrations/0002_profiles_without_supabase_auth.sql`. The existing `profiles.id` is a foreign key to Supabase Auth's `auth.users`, which Clerk users never have, so every profile insert fails until that constraint is dropped.
 
 Then connect Clerk as a third-party auth provider (the JWT-template integration is deprecated):
 
@@ -33,9 +49,9 @@ Then connect Clerk as a third-party auth provider (the JWT-template integration 
 2. Supabase → Authentication → Sign In / Providers → Third Party → Clerk.
 3. Clerk domain: `growing-hare-8761.clerk.accounts.dev`.
 
-Every table is scoped with `auth.jwt()->>'sub'` (the Clerk user id). `auth.uid()` is not used, because that id is not a UUID. `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS and is only read in `lib/supabase/admin.ts`, which is marked server-only. The UI does not call it.
+Every table is scoped with `auth.jwt()->>'sub'` (the Clerk user id). `auth.uid()` is not used, because that id is not a UUID. `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS and is only read in `lib/supabase/admin.ts`, which is marked server-only. Onboarding and sync use it on the server, scoped to the profile of the Clerk user `auth()` verified, because they need the encrypted feed URL. Page reads and checkbox saves go through the RLS client with the Clerk session token. If Supabase rejects that token (third-party setup not finished), they fall back to the service role with the same profile filter and log a warning.
 
-Finishing onboarding creates the `profiles` and `feeds` rows for that Clerk user. Courses and assignments stay empty until sync is added. The screens use placeholder coursework in the browser.
+Finishing onboarding creates the `profiles` and `feeds` rows for that Clerk user, and sync fills `courses` and `assignments`.
 
 ## Test auth and RLS
 
@@ -55,4 +71,4 @@ curl "https://cfpvxpfcrmzvuvmrwrkt.supabase.co/rest/v1/profiles?select=clerk_use
 
 The response should contain only A's row. Repeat with B's token and confirm A's row is absent.
 
-Checking a box marks that assignment submitted for this browser only (`localStorage`). It does not write to Supabase yet.
+Run the same curl against `assignments?select=title` to confirm each account only sees its own synced coursework.
