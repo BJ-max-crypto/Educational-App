@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { getBusyBlocks } from "@/lib/google-calendar";
 import { validateGrade, validateName, validateSchool } from "@/lib/onboarding";
+import { suggestSimilar } from "@/lib/suggest";
 import { syncFeed } from "@/lib/sync";
 import type { AssignmentStatus } from "@/lib/types";
 import { isValidZone } from "@/lib/timezone";
@@ -289,4 +290,59 @@ export async function setAssignmentCourses(
 
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+export type SuggestionsResult =
+  | { ok: true; suggestions: { id: string; title: string; reasons: string[] }[] }
+  | { ok: false; error: string };
+
+/** Unsorted items that look like the ones already tagged with `courseId`. Nothing is saved. */
+export async function suggestForCourse(courseId: string): Promise<SuggestionsResult> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Your session ended. Sign in again." };
+
+  try {
+    const db = await getUserDb(userId);
+    if (!db) return { ok: false, error: "Finish onboarding first." };
+    const { supabase, profileId } = db;
+
+    const { data: courses, error: coursesError } = await supabase
+      .from("courses")
+      .select("id, is_unsorted")
+      .eq("user_id", profileId);
+    if (coursesError) throw new Error(coursesError.message);
+    const course = courses.find((row) => row.id === courseId);
+    if (!course || course.is_unsorted) return { ok: true, suggestions: [] };
+    const unsortedId = courses.find((row) => row.is_unsorted)?.id;
+    if (!unsortedId) return { ok: true, suggestions: [] };
+
+    const columns = "id, title, description, url";
+    const [examples, candidates] = await Promise.all([
+      supabase
+        .from("assignments")
+        .select(columns)
+        .eq("user_id", profileId)
+        .eq("course_id", courseId)
+        .order("updated_at", { ascending: false })
+        .limit(200),
+      supabase
+        .from("assignments")
+        .select(columns)
+        .eq("user_id", profileId)
+        .eq("course_id", unsortedId)
+        .eq("missing_from_feed", false)
+        .not("due_at", "is", null)
+        .limit(3000),
+    ]);
+    if (examples.error) throw new Error(examples.error.message);
+    if (candidates.error) throw new Error(candidates.error.message);
+
+    const suggestions = suggestSimilar(examples.data, candidates.data).map(
+      ({ id, title, reasons }) => ({ id, title, reasons }),
+    );
+    return { ok: true, suggestions };
+  } catch (error) {
+    console.error("suggestForCourse failed", error);
+    return { ok: false, error: "Couldn't look for similar items." };
+  }
 }

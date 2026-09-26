@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Background } from "@/components/background";
 import { SaveErrorBanner } from "@/components/sync-status";
+import { TagSuggestionsPanel } from "@/components/tag-suggestions";
 import { TopNav } from "@/components/top-nav";
 import { TimeZoneReporter } from "@/components/time-zone-reporter";
 import { CourseworkProvider, type ShellUser } from "@/lib/coursework";
@@ -51,6 +52,7 @@ export function AppShell({
           {children}
         </main>
       </div>
+      <TagSuggestionsPanel />
     </CourseworkProvider>
   );
 }

@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   useTransition,
@@ -14,6 +15,7 @@ import {
   createCourse as createCourseAction,
   setAssignmentCourses,
   setAssignmentStatus,
+  suggestForCourse,
   syncNow,
 } from "@/app/(app)/actions";
 import { dueThisWeek, initials, isOverdue, isSubmitted, plannerBucket } from "@/lib/dates";
@@ -48,6 +50,13 @@ export type ShellUser = {
   grade: string | null;
 };
 
+export type TagSuggestions = {
+  courseId: string;
+  items: { id: string; title: string; reasons: string[] }[];
+  loading: boolean;
+  error: string | null;
+};
+
 type CourseworkValue = {
   ready: boolean;
   now: Date | null;
@@ -67,6 +76,11 @@ type CourseworkValue = {
   unsortedAssignments: Assignment[];
   assignCourse: (assignmentIds: string[], courseId: string | null) => Promise<boolean>;
   createCourse: (name: string) => Promise<{ id: string } | { error: string }>;
+  /** Unsorted items that look like the same class as a course's tagged items. */
+  tagSuggestions: TagSuggestions | null;
+  findSimilar: (courseId: string) => Promise<void>;
+  acceptSuggestions: (ids: string[]) => Promise<boolean>;
+  dismissSuggestions: () => void;
   openAssignments: (courseId: string) => Assignment[];
   completedAssignments: (courseId: string) => Assignment[];
   nextUp: (courseId: string) => Assignment | null;
@@ -128,6 +142,46 @@ export function CourseworkProvider({
     [stored, overrides, courseMoves],
   );
 
+  const [tagSuggestions, setTagSuggestions] = useState<TagSuggestions | null>(null);
+  const dismissed = useRef(new Set<string>());
+  const suggestRequest = useRef(0);
+
+  const findSimilar = useCallback(
+    async (courseId: string, { quiet = false }: { quiet?: boolean } = {}) => {
+      const request = ++suggestRequest.current;
+      if (!quiet) setTagSuggestions({ courseId, items: [], loading: true, error: null });
+      const result = await suggestForCourse(courseId).catch(() => ({
+        ok: false as const,
+        error: "Couldn't look for similar items.",
+      }));
+      if (request !== suggestRequest.current) return;
+      if (!result.ok) {
+        setTagSuggestions(quiet ? null : { courseId, items: [], loading: false, error: result.error });
+        return;
+      }
+      // Automatic suggestions skip items the student already turned down; "Find similar" doesn't.
+      const items = quiet
+        ? result.suggestions.filter((item) => !dismissed.current.has(`${courseId}:${item.id}`))
+        : result.suggestions;
+      setTagSuggestions(
+        items.length || !quiet ? { courseId, items, loading: false, error: null } : null,
+      );
+    },
+    [],
+  );
+
+  const dismissSuggestions = useCallback(
+    (ids?: string[]) => {
+      suggestRequest.current++;
+      const current = tagSuggestions;
+      setTagSuggestions(null);
+      if (!current) return;
+      const skip = ids ?? current.items.map((item) => item.id);
+      for (const id of skip) dismissed.current.add(`${current.courseId}:${id}`);
+    },
+    [tagSuggestions],
+  );
+
   const assignCourse = useCallback(
     async (assignmentIds: string[], courseId: string | null) => {
       const target = courseId ?? unsortedCourseId;
@@ -150,9 +204,21 @@ export function CourseworkProvider({
         return false;
       }
       router.refresh();
+      if (courseId) void findSimilar(courseId, { quiet: true });
       return true;
     },
-    [courseMoves, router, unsortedCourseId],
+    [courseMoves, findSimilar, router, unsortedCourseId],
+  );
+
+  const acceptSuggestions = useCallback(
+    async (ids: string[]) => {
+      const current = tagSuggestions;
+      if (!current || !ids.length) return false;
+      const chosen = new Set(ids);
+      dismissSuggestions(current.items.filter((item) => !chosen.has(item.id)).map((item) => item.id));
+      return assignCourse(ids, current.courseId);
+    },
+    [assignCourse, dismissSuggestions, tagSuggestions],
   );
 
   const createCourse = useCallback(async (name: string) => {
@@ -221,6 +287,15 @@ export function CourseworkProvider({
       ),
       assignCourse,
       createCourse,
+      tagSuggestions: tagSuggestions && {
+        ...tagSuggestions,
+        items: tagSuggestions.items.filter(
+          (item) => courseMoves[item.id] !== tagSuggestions.courseId,
+        ),
+      },
+      findSimilar: (courseId) => findSimilar(courseId),
+      acceptSuggestions,
+      dismissSuggestions: () => dismissSuggestions(),
       feed,
       syncing,
       syncError,
@@ -278,6 +353,11 @@ export function CourseworkProvider({
       },
     };
   }, [
+    acceptSuggestions,
+    courseMoves,
+    dismissSuggestions,
+    findSimilar,
+    tagSuggestions,
     assignCourse,
     assignments,
     courseById,

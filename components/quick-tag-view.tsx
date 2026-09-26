@@ -62,7 +62,8 @@ export function QuickTagView() {
       </h1>
       <p className="mt-1 max-w-[640px] text-[14px] text-[#5b6478]">
         Schoology&apos;s calendar feed doesn&apos;t say which class an item belongs to. Tag each one
-        once. Pane remembers it by its Schoology ID and applies it on every sync.
+        once. Pane remembers it by its Schoology ID and applies it on every sync. After each tag,
+        Pane suggests similar items you can tag in one go.
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">

@@ -34,6 +34,8 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
     completedAssignments,
     toggleDone,
     assignCourse,
+    findSimilar,
+    unsortedAssignments,
   } = useCoursework();
   const course = courseById.get(courseId);
   const clock = now ?? new Date();
@@ -98,6 +100,14 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
               >
                 Quick tag all
               </Link>
+            ) : unsortedAssignments.length ? (
+              <button
+                type="button"
+                onClick={() => void findSimilar(course.id)}
+                className="ml-auto rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] motion-reduce:transition-none"
+              >
+                Find similar in Unsorted
+              </button>
             ) : null}
           </div>
           <div className="mt-4 space-y-3">
