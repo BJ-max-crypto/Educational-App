@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Background } from "@/components/background";
 import { SaveErrorBanner } from "@/components/sync-status";
@@ -37,11 +38,11 @@ export function AppShell({
     >
       <TimeZoneReporter known={knownTimeZone} />
       <Background />
-      <div className="relative mx-auto min-h-screen w-full max-w-[1440px]">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[1440px] flex-col">
         <header className="flex flex-col items-center gap-4 px-4 pt-6 md:h-[108px] md:flex-row md:px-[84px] md:pt-7">
           <div className="flex w-full items-center justify-between md:contents">
-            <Link href="/dashboard" className="text-[22px] font-semibold tracking-[-0.03em] text-[#14213d]">
-              Pane
+            <Link href="/dashboard" aria-label="Pane" className="inline-flex items-center">
+              <Image src="/pane-logo.png" alt="" width={342} height={258} priority className="h-11 w-auto" />
             </Link>
             <Link
               href="/profile"
@@ -59,10 +60,13 @@ export function AppShell({
             <TopNav />
           </div>
         </header>
-        <main className="px-4 pb-16 pt-4 md:px-[84px] md:pt-2">
+        <main className="flex-1 px-4 pb-10 pt-4 md:px-[84px] md:pt-2">
           <SaveErrorBanner />
           {children}
         </main>
+        <footer className="px-4 pb-8 text-center md:px-[84px]">
+          <p className="text-[13px] font-semibold tracking-[0.28em] text-[#5b6478]">PANE</p>
+        </footer>
       </div>
       <TagSuggestionsPanel />
     </CourseworkProvider>
