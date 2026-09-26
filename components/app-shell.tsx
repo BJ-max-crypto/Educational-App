@@ -42,7 +42,7 @@ export function AppShell({
         <header className="flex flex-col items-center gap-4 px-4 pt-6 md:h-[108px] md:flex-row md:px-[84px] md:pt-7">
           <div className="flex w-full items-center justify-between md:contents">
             <Link href="/dashboard" aria-label="Pane" className="inline-flex items-center">
-              <Image src="/pane-logo.png" alt="" width={342} height={258} priority className="h-11 w-auto" />
+              <Image src="/pane-logo.png" alt="" width={342} height={258} priority className="h-8 w-auto" />
             </Link>
             <Link
               href="/profile"
