@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { ServiceWorkerRegistration } from "@/components/service-worker";
 import "./globals.css";
+import "./mobile.css";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -11,6 +13,19 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Pane",
   description: "Coursework, in one place.",
+  applicationName: "Pane",
+  appleWebApp: { capable: true, title: "Pane", statusBarStyle: "default" },
+  // Next only emits `mobile-web-app-capable`; iOS before 16.4 needs the Apple-prefixed tag.
+  other: { "apple-mobile-web-app-capable": "yes" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Lets the page draw under the notch and home indicator; mobile.css pads by the safe-area insets.
+  viewportFit: "cover",
+  // Only phones get a tinted browser bar; desktop browser chrome is left alone.
+  themeColor: [{ media: "(max-width: 767.98px)", color: "#eef3fb" }],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -31,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           {children}
         </ClerkProvider>
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );
