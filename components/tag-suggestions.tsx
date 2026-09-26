@@ -36,7 +36,7 @@ function Panel({ suggestions }: { suggestions: TagSuggestions }) {
   }
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[420px]">
+    <div className="fixed inset-x-3 bottom-3 z-40 print:hidden sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[420px]">
       <GlassCard className="flex max-h-[70vh] flex-col bg-[#eef3ff]/95 px-5 py-5 supports-[backdrop-filter]:bg-[rgba(232,240,255,0.82)]">
         <div className="flex items-start gap-3">
           {course ? (

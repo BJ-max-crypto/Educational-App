@@ -23,3 +23,21 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
+
+.print-sheet {
+  display: none;
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  .print-sheet {
+    display: block;
+  }
+
+  @page {
+    margin: 0.6in;
+  }
+}

@@ -30,7 +30,7 @@ export function AppShell({
       <TimeZoneReporter known={knownTimeZone} />
       <Background />
       <div className="relative mx-auto min-h-screen w-full max-w-[1440px]">
-        <header className="flex flex-col items-center gap-4 px-4 pt-6 md:h-[108px] md:flex-row md:px-[84px] md:pt-7">
+        <header className="flex flex-col items-center gap-4 px-4 pt-6 print:hidden md:h-[108px] md:flex-row md:px-[84px] md:pt-7">
           <div className="flex w-full items-center justify-between md:contents">
             <Link href="/dashboard" className="text-[22px] font-semibold tracking-[-0.03em] text-[#14213d]">
               Pane
@@ -47,7 +47,7 @@ export function AppShell({
             <TopNav />
           </div>
         </header>
-        <main className="px-4 pb-16 pt-4 md:px-[84px] md:pt-2">
+        <main className="px-4 pb-16 pt-4 print:p-0 md:px-[84px] md:pt-2">
           <SaveErrorBanner />
           {children}
         </main>

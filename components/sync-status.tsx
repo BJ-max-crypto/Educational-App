@@ -53,7 +53,7 @@ export function SaveErrorBanner() {
   return (
     <p
       role="alert"
-      className="mb-4 rounded-full bg-[rgba(229,72,77,0.16)] px-4 py-2 text-[13px] font-semibold text-[#e5484d]"
+      className="mb-4 rounded-full bg-[rgba(229,72,77,0.16)] px-4 py-2 text-[13px] font-semibold text-[#e5484d] print:hidden"
     >
       {saveError}
     </p>

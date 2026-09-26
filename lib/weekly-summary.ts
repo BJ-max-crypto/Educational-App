@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { BusyBlock, CalendarState } from "@/lib/google-calendar";
+import { datedDay, daysFromMonday, spokenDay, type CivilDate } from "@/lib/day-phrase";
 import { localMidnight, wallTimeToUtc, zonedParts } from "@/lib/timezone";
 import type { Assignment, Course } from "@/lib/types";
 
@@ -17,6 +18,11 @@ function fmt(instant: number, timeZone: string, options: Intl.DateTimeFormatOpti
 
 const dayLabel = (t: number, tz: string) => fmt(t, tz, { weekday: "long", month: "short", day: "numeric" });
 const timeLabel = (t: number, tz: string) => fmt(t, tz, { hour: "numeric", minute: "2-digit" });
+
+function civilInZone(instant: number, timeZone: string): CivilDate {
+  const p = zonedParts(instant, timeZone);
+  return { year: p.year, month: p.month, day: p.day };
+}
 
 /** Schoology URLs say whether an item is a gradable assignment or a calendar event. */
 function kindOf(url: string | undefined) {
@@ -75,6 +81,10 @@ export function buildSummaryInput({
   const courseName = new Map(courses.map((course) => [course.id, course.name]));
   const today = localMidnight(now, timeZone);
   const weekEnd = localMidnight(now, timeZone, 7);
+  const todayCivil = civilInZone(now, timeZone);
+  const fromMonday = daysFromMonday(todayCivil);
+  const weekStart = localMidnight(now, timeZone, -fromMonday);
+  const weekFinish = localMidnight(now, timeZone, -fromMonday + 6);
 
   const overdue = assignments.filter(
     (item) => item.status !== "submitted" && new Date(item.dueAt).getTime() < today,
@@ -92,12 +102,14 @@ export function buildSummaryInput({
       `course: ${course && course !== "Unsorted" ? course : "unknown (the feed has no course)"}`,
       `type: ${kindOf(item.url)}`,
       `due: ${dayLabel(due, timeZone)} ${timeLabel(due, timeZone)}`,
+      `call it: ${spokenDay(civilInZone(due, timeZone), todayCivil)}`,
       `status: ${statusLabel(item, isOverdue)}`,
     ].join(" | ");
   };
 
   const sections = [
     `Today is ${dayLabel(now, timeZone)}, ${timeLabel(now, timeZone)} (${timeZone}).`,
+    `Current calendar week (Monday–Sunday): ${datedDay(civilInZone(weekStart, timeZone))} through ${datedDay(civilInZone(weekFinish, timeZone))}.`,
     "",
     `OVERDUE (${overdue.length}):`,
     ...(overdue.length ? overdue.map((item) => line(item, true)) : ["- none"]),
@@ -141,6 +153,8 @@ function systemPrompt(usedCalendar: boolean) {
     "If anything is overdue, say so plainly: give the count and name at most three of the most recent overdue items.",
     "Status comes only from the student's own checkmarks in Pane; Pane cannot see what was turned in on Schoology. So describe overdue items as past due and not checked off, not as proof the student is behind, and never say or imply an item is done unless its status is \"marked submitted by the student\".",
     "Use only facts in the data.",
+    "Each item has a \"call it\" field. When you say when it is due, copy that field exactly.",
+    "\"this Monday\" (or this Tuesday, and so on) means that weekday of the current calendar week named above. A day in any other week is already a date, such as \"Monday, Mar 2\". Never write \"next\" before a weekday.",
     "Items of type \"calendar event\" are Schoology calendar entries and may not be homework; do not count them as assignments.",
     "If a course is unknown, refer to the item by title only; do not guess the class.",
     usedCalendar

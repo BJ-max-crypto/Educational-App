@@ -1,9 +1,21 @@
 import type { Assignment, PlannerBucket } from "@/lib/types";
+import {
+  dueDetailPhrase,
+  plannerWhenPhrase,
+  type CivilDate,
+} from "@/lib/day-phrase";
 
 export function startOfDay(date: Date) {
   const copy = new Date(date);
   copy.setHours(0, 0, 0, 0);
   return copy;
+}
+
+/** Monday 00:00 of the calendar week that contains `date` (local time). */
+export function startOfWeek(date: Date) {
+  const start = startOfDay(date);
+  const daysFromMonday = (start.getDay() + 6) % 7;
+  return addDays(start, -daysFromMonday);
 }
 
 export function addDays(date: Date, days: number) {
@@ -50,12 +62,6 @@ export function dueThisWeek(assignment: Assignment, now: Date) {
   return due >= today && due < weekEnd;
 }
 
-function dayDiff(dueAt: string, now: Date) {
-  const dueDay = startOfDay(new Date(dueAt)).getTime();
-  const today = startOfDay(now).getTime();
-  return Math.round((dueDay - today) / 86_400_000);
-}
-
 function clock(dueAt: string) {
   return new Date(dueAt).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -63,28 +69,18 @@ function clock(dueAt: string) {
   });
 }
 
-function weekday(dueAt: string) {
-  return new Date(dueAt).toLocaleDateString("en-US", { weekday: "short" });
+function civil(date: Date): CivilDate {
+  return { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
 }
 
 /** Right-hand label on a planner row. */
 export function plannerWhen(dueAt: string, now: Date) {
-  const diff = dayDiff(dueAt, now);
-  if (diff <= -2) return `${Math.abs(diff)} days ago`;
-  if (diff === -1) return "Yesterday";
-  if (diff === 0 || diff === 1) return clock(dueAt);
-  return weekday(dueAt);
+  return plannerWhenPhrase(civil(new Date(dueAt)), civil(now), clock(dueAt));
 }
 
 /** Second line on a course assignment or the next-up card. */
 export function dueDetail(dueAt: string, now: Date) {
-  const diff = dayDiff(dueAt, now);
-  if (diff <= -2) return `Overdue · ${Math.abs(diff)} days ago`;
-  if (diff === -1) return "Overdue · Yesterday";
-  if (diff === 0) return `Due today · ${clock(dueAt)}`;
-  if (diff === 1) return `Due tomorrow · ${clock(dueAt)}`;
-  if (diff < 7) return `Due ${weekday(dueAt)} · ${clock(dueAt)}`;
-  return `Due next ${weekday(dueAt)}`;
+  return dueDetailPhrase(civil(new Date(dueAt)), civil(now), clock(dueAt));
 }
 
 export function timeAgo(iso: string, now: Date) {
