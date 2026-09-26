@@ -5,7 +5,7 @@
  */
 export function Background() {
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#eef3fb]">
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#eef3fb] print:hidden">
       <div className="absolute -left-[8%] -top-[24%] h-[77%] w-[62%] rounded-full bg-[#c9d7ff] opacity-90 blur-[80px]" />
       <div className="absolute -right-[10%] -top-[20%] h-[95%] w-[54%] rounded-full bg-[#e0d0ff] opacity-80 blur-[90px]" />
       <div className="absolute right-[2%] top-[46%] h-[65%] w-[43%] rounded-full bg-[#f8d0e2] opacity-75 blur-[80px]" />

@@ -54,7 +54,7 @@ export function WeeklySummaryCard() {
   const error = state.phase === "failed" ? state.message : data?.error;
 
   return (
-    <GlassCard className="mx-auto mb-6 w-full max-w-[880px] px-6 py-6 sm:px-10">
+    <GlassCard className="mx-auto mb-6 w-full max-w-[880px] px-6 py-6 print:hidden sm:px-10">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">THIS WEEK</h2>
         <button
