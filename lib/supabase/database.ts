@@ -160,6 +160,26 @@ export type Database = {
         };
         Relationships: [];
       };
+      assignment_course_overrides: {
+        Row: {
+          user_id: string;
+          schoology_uid: string;
+          course_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          schoology_uid: string;
+          course_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          course_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       calendar_busy: {
         Row: {
           user_id: string;

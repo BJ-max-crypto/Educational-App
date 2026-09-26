@@ -1,5 +1,6 @@
 import "server-only";
 
+import { COURSE_COLORS } from "@/lib/course-colors";
 import { decryptSecret } from "@/lib/crypto";
 import { parseIcal } from "@/lib/ical/parse";
 import { validateIcalUrl } from "@/lib/onboarding";
@@ -20,10 +21,26 @@ const MAX_BYTES = 5 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;
 const UNSORTED = "Unsorted";
 
-/** Assigned to courses in the order they are first seen. */
-const COURSE_COLORS = ["#4f7cff", "#c43b6e", "#1b7f60", "#c4552b", "#9a5b0a", "#5b45d6", "#2f6f9f", "#7a4ea3"];
+
 
 class SyncError extends Error {}
+
+/**
+ * Courses the student tagged by hand, keyed by Schoology UID. These win over anything in
+ * the feed. If migration 0004 is missing, sync still runs and keeps assignments already
+ * marked `course_source = 'manual'`.
+ */
+async function loadOverrides(supabase: ReturnType<typeof createAdminClient>, profileId: string) {
+  const { data, error } = await supabase
+    .from("assignment_course_overrides")
+    .select("schoology_uid, course_id")
+    .eq("user_id", profileId);
+  if (error) {
+    console.error("course overrides unavailable (run migration 0004?)", error.message);
+    return new Map<string, string>();
+  }
+  return new Map(data.map((row) => [row.schoology_uid, row.course_id]));
+}
 
 async function fetchCalendar(url: string) {
   let response: Response;
@@ -112,8 +129,13 @@ export async function syncFeed(
       .eq("user_id", profileId);
     if (coursesError) throw new Error(`courses lookup: ${coursesError.message}`);
 
+    const overrides = await loadOverrides(supabase, profileId);
     const courseIds = new Map(existingCourses.map((course) => [course.name, course.id]));
-    const wanted = [...new Set(items.map((item) => item.courseHint ?? UNSORTED))];
+    const wanted = [
+      ...new Set(
+        items.filter((item) => !overrides.has(item.uid)).map((item) => item.courseHint ?? UNSORTED),
+      ),
+    ];
     const missing = wanted.filter((name) => !courseIds.has(name));
     if (missing.length > 0) {
       const { data: created, error } = await supabase
@@ -145,8 +167,23 @@ export async function syncFeed(
 
     const rows: AssignmentInsert[] = items.map((item) => {
       const previous = byUid.get(item.uid);
+      const tagged = overrides.get(item.uid);
       const keepManual = previous?.course_source === "manual";
       const courseName = item.courseHint ?? UNSORTED;
+      if (tagged) {
+        return {
+          user_id: profileId,
+          external_uid: item.uid,
+          title: item.title,
+          description: item.description,
+          due_at: item.dueAt,
+          url: item.url,
+          course_id: tagged,
+          course_source: "manual" as const,
+          last_seen_in_feed_at: startedIso,
+          missing_from_feed: false,
+        };
+      }
       return {
         user_id: profileId,
         external_uid: item.uid,
