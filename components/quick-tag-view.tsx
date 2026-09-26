@@ -54,7 +54,7 @@ export function QuickTagView() {
 
   return (
     <GlassCard className="mx-auto w-full max-w-[960px] px-5 py-7 sm:px-9">
-      <Link href="/dashboard" className="text-[14px] font-medium text-[#5b6478]">
+      <Link href="/dashboard" data-m="hit" className="text-[14px] font-medium text-[#5b6478]">
         ‹ Dashboard
       </Link>
       <h1 className="mt-2 text-[30px] font-semibold leading-tight tracking-[-0.03em] text-[#14213d]">
@@ -73,6 +73,7 @@ export function QuickTagView() {
             type="button"
             onClick={() => setFilter(option)}
             aria-pressed={filter === option}
+            data-m="tap"
             className={cn(
               "rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors duration-150 ease-out",
               filter === option ? "bg-white/95 text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)]" : "text-[#5b6478] hover:bg-white/60",
@@ -87,7 +88,7 @@ export function QuickTagView() {
       </div>
 
       <div className="sticky top-2 z-10 mt-4 flex flex-wrap items-center gap-3 rounded-[20px] border border-white/90 bg-white/80 px-4 py-2.5 shadow-[0_8px_20px_rgba(51,64,128,0.10)] backdrop-blur-[14px]">
-        <label className="flex items-center gap-2 text-[13px] font-semibold text-[#14213d]">
+        <label data-m="tap" className="flex items-center gap-2 text-[13px] font-semibold text-[#14213d]">
           <input
             type="checkbox"
             checked={allSelected}
@@ -120,13 +121,15 @@ export function QuickTagView() {
                 key={item.id}
                 className="-mx-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[14px] px-2 py-2.5 transition-colors duration-150 ease-out hover:bg-white/50"
               >
-                <input
-                  type="checkbox"
-                  checked={selected.has(item.id)}
-                  onChange={() => toggle(item.id)}
-                  aria-label={`Select ${item.title}`}
-                  className="size-4 shrink-0 accent-[#4f7cff]"
-                />
+                <label data-m="check-wrap" className="contents">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(item.id)}
+                    onChange={() => toggle(item.id)}
+                    aria-label={`Select ${item.title}`}
+                    className="size-4 shrink-0 accent-[#4f7cff]"
+                  />
+                </label>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-semibold text-[#14213d]">{item.title}</p>
                   <p className="text-[12px] text-[#5b6478]">
@@ -145,6 +148,7 @@ export function QuickTagView() {
                           href={item.url.replace(/^http:/, "https:")}
                           target="_blank"
                           rel="noreferrer"
+                          data-m="hit"
                           className="font-semibold underline-offset-2 hover:underline"
                         >
                           Open in Schoology

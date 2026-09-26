@@ -30,6 +30,7 @@ export function DashboardView() {
           </p>
           <Link
             href="/tag"
+            data-m="tap"
             className="ml-auto rounded-full bg-[#14213d] px-4 py-2 text-[13px] font-semibold text-white transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(20,33,61,0.25)] motion-reduce:transition-none"
           >
             Quick tag

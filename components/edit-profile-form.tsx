@@ -96,6 +96,7 @@ export function EditProfileForm({
         <button
           type="submit"
           disabled={pending}
+          data-m="tap"
           className="rounded-full bg-[#14213d] px-5 py-2.5 text-[14px] font-semibold text-white transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(20,33,61,0.25)] disabled:opacity-60 motion-reduce:transition-none"
         >
           {pending ? "Saving…" : "Save"}
@@ -104,6 +105,7 @@ export function EditProfileForm({
           type="button"
           onClick={() => onDone(false)}
           disabled={pending}
+          data-m="hit"
           className="text-[14px] font-semibold text-[#5b6478]"
         >
           Cancel

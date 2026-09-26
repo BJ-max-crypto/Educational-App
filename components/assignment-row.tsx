@@ -27,6 +27,7 @@ export function AssignmentRow({
 }) {
   return (
     <div
+      data-m="row"
       className={cn(
         "flex items-center justify-between gap-3 transition-[transform,box-shadow,background-color] duration-200 ease-out hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         variant === "card" &&
@@ -42,6 +43,7 @@ export function AssignmentRow({
           aria-checked={done}
           aria-label={done ? `Mark ${title} not done` : `Mark ${title} done`}
           onClick={onToggle}
+          data-m="hit"
           className={cn(
             "flex size-6 shrink-0 items-center justify-center rounded-full border",
             done
@@ -54,6 +56,7 @@ export function AssignmentRow({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <p
+              data-m="row-title"
               className={cn(
                 "truncate font-semibold text-[#14213d]",
                 variant === "card" ? "text-[16px]" : "text-[16px]",
@@ -85,7 +88,7 @@ export function AssignmentRow({
           ) : null}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div data-m="row-trail" className="flex shrink-0 items-center gap-3">
         {when ? <p className="text-[13px] font-medium text-[#5b6478]">{when}</p> : null}
         {chip}
       </div>

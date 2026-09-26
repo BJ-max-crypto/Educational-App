@@ -61,6 +61,7 @@ export function WeeklySummaryCard() {
           type="button"
           onClick={refresh}
           disabled={refreshing || state.phase === "loading"}
+          data-m="tap"
           className="rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] disabled:opacity-60 disabled:hover:translate-y-0 motion-reduce:transition-none"
         >
           {refreshing ? "Refreshing…" : "Refresh"}
@@ -92,7 +93,7 @@ export function WeeklySummaryCard() {
           {!data.usedCalendar && data.calendar.status === "not_connected" ? (
             <>
               {" "}
-              <Link href="/profile" className="font-semibold underline-offset-2 hover:underline">
+              <Link href="/profile" data-m="hit" className="font-semibold underline-offset-2 hover:underline">
                 Connect Google Calendar
               </Link>{" "}
               to include free time.

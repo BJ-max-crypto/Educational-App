@@ -1,0 +1,146 @@
+/*
+ * Phone-only styles. Everything here sits inside one query that is the exact complement of
+ * Tailwind's `md:` breakpoint (48rem), so at 768px and wider none of it applies.
+ * Components opt in with `data-m` tokens; the attributes have no styling of their own.
+ * These rules are unlayered, so they win over Tailwind utilities below the breakpoint.
+ */
+@media (width < 48rem) {
+  /* Safe areas (notch, home indicator). env() is 0 where there is no inset. */
+  [data-m~="header"] {
+    padding-top: calc(1.5rem + env(safe-area-inset-top));
+    padding-left: calc(1rem + env(safe-area-inset-left));
+    padding-right: calc(1rem + env(safe-area-inset-right));
+  }
+
+  [data-m~="main"] {
+    padding-left: calc(1rem + env(safe-area-inset-left));
+    padding-right: calc(1rem + env(safe-area-inset-right));
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  [data-m~="sheet"] {
+    left: calc(0.75rem + env(safe-area-inset-left));
+    right: calc(0.75rem + env(safe-area-inset-right));
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    max-height: 70dvh;
+  }
+
+  /* Pill nav: full width with equal, 44px-tall tabs so nothing wraps or crowds. */
+  [data-m~="nav-wrap"] {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+  }
+
+  [data-m~="nav"] {
+    width: 100%;
+    max-width: 26rem;
+  }
+
+  [data-m~="nav-tab"] {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  /* Touch targets. `tap` grows the control itself; `hit` keeps the look and adds an
+     invisible 44x44 hit area around small controls such as checkboxes and text links. */
+  [data-m~="tap"] {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  [data-m~="hit"] {
+    position: relative;
+  }
+
+  [data-m~="hit"]::after {
+    content: "";
+    position: absolute;
+    top: min(0px, calc((100% - 44px) / 2));
+    bottom: min(0px, calc((100% - 44px) / 2));
+    left: min(0px, calc((100% - 44px) / 2));
+    right: min(0px, calc((100% - 44px) / 2));
+  }
+
+  [data-m~="check-wrap"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -14px;
+    flex-shrink: 0;
+  }
+
+  /* iOS zooms the page when a field under 16px gets focus. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Single column that can shrink below its content, so long titles truncate
+     instead of widening the page. */
+  [data-m~="grid1"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-m~="wrap"] {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+  }
+
+  [data-m~="break"] {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Assignment rows: the chip and course picker drop under the title when they don't fit. */
+  [data-m~="row"] {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  [data-m~="row-trail"] {
+    margin-left: auto;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 0.5rem;
+  }
+
+  [data-m~="row-title"] {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (width < 22.5rem) {
+  [data-m~="nav-tab"] {
+    font-size: 14px;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+}
+
+@media (40rem <= width < 48rem) {
+  [data-m~="sheet"] {
+    left: auto;
+    right: calc(1.5rem + env(safe-area-inset-right));
+    bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  }
+}

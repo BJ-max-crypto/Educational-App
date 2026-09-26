@@ -23,6 +23,7 @@ export function TopNav() {
   return (
     <nav
       aria-label="Primary"
+      data-m="nav"
       className="flex items-center gap-1 rounded-full border border-white/90 bg-white/50 p-1.5 shadow-[0_12px_32px_rgba(51,64,128,0.12)] backdrop-blur-[14px]"
     >
       {tabs.map((tab) => {
@@ -32,6 +33,7 @@ export function TopNav() {
             key={tab.href}
             href={tab.href}
             aria-current={active ? "page" : undefined}
+            data-m="nav-tab"
             className={cn(
               "rounded-full px-4 py-2.5 text-[15px] leading-none transition-[transform,box-shadow,background-color,color] duration-150 ease-out hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:px-6",
               active

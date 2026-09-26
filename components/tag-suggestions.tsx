@@ -36,7 +36,7 @@ function Panel({ suggestions }: { suggestions: TagSuggestions }) {
   }
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[420px]">
+    <div data-m="sheet" className="fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[420px]">
       <GlassCard className="flex max-h-[70vh] flex-col bg-[#eef3ff]/95 px-5 py-5 supports-[backdrop-filter]:bg-[rgba(232,240,255,0.82)]">
         <div className="flex items-start gap-3">
           {course ? (
@@ -60,6 +60,7 @@ function Panel({ suggestions }: { suggestions: TagSuggestions }) {
             type="button"
             onClick={dismissSuggestions}
             aria-label="Close suggestions"
+            data-m="tap"
             className="-mr-1 -mt-1 flex size-8 items-center justify-center rounded-full text-[18px] text-[#5b6478] transition-colors hover:bg-white/70"
           >
             ×
@@ -71,6 +72,7 @@ function Panel({ suggestions }: { suggestions: TagSuggestions }) {
             <button
               type="button"
               onClick={() => setChecked(allChecked ? new Set() : new Set(items.map((item) => item.id)))}
+              data-m="hit"
               className="mt-3 self-start text-[12.5px] font-semibold text-[#4f7cff]"
             >
               {allChecked ? "Clear" : `Check all ${items.length}`}
@@ -101,6 +103,7 @@ function Panel({ suggestions }: { suggestions: TagSuggestions }) {
               <button
                 type="button"
                 onClick={dismissSuggestions}
+                data-m="hit"
                 className="text-[13px] font-semibold text-[#5b6478]"
               >
                 Not these
@@ -108,6 +111,7 @@ function Panel({ suggestions }: { suggestions: TagSuggestions }) {
               <button
                 type="button"
                 disabled={!checked.size || saving}
+                data-m="tap"
                 onClick={accept}
                 className="h-9 rounded-full bg-[#14213d] px-4 text-[13px] font-semibold text-white transition-opacity disabled:opacity-40"
               >

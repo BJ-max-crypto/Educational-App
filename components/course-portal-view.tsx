@@ -44,7 +44,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
     return (
       <GlassCard className="p-8">
         <p className="text-[18px] font-semibold">That course is not on your list.</p>
-        <Link href="/dashboard" className="mt-3 inline-block text-[14px] font-medium text-[#5b6478]">
+        <Link href="/dashboard" data-m="hit" className="mt-3 inline-block text-[14px] font-medium text-[#5b6478]">
           ‹ Dashboard
         </Link>
       </GlassCard>
@@ -66,7 +66,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
 
   return (
     <div>
-      <Link href="/dashboard" className="text-[14px] font-medium text-[#5b6478]">
+      <Link href="/dashboard" data-m="hit" className="text-[14px] font-medium text-[#5b6478]">
         ‹ Dashboard
       </Link>
       <div className="mt-3 flex items-center gap-4">
@@ -86,9 +86,9 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
         </div>
       </div>
 
-      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.95fr)]">
+      <div data-m="grid1" className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.95fr)]">
         <GlassCard className="p-7">
-          <div className="flex items-center gap-3">
+          <div data-m="wrap" className="flex items-center gap-3">
             <h2 className="text-[22px] font-semibold text-[#14213d]">Upcoming</h2>
             <StatusChip tone="neutral">
               {open.length} {open.length === 1 ? "item" : "items"}
@@ -96,6 +96,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
             {course.isUnsorted ? (
               <Link
                 href="/tag"
+                data-m="tap"
                 className="ml-auto rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] motion-reduce:transition-none"
               >
                 Quick tag all
@@ -104,6 +105,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
               <button
                 type="button"
                 onClick={() => void findSimilar(course.id)}
+                data-m="tap"
                 className="ml-auto rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] motion-reduce:transition-none"
               >
                 Find similar in Unsorted
@@ -186,6 +188,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
               <button
                 type="button"
                 aria-disabled="true"
+                data-m="hit"
                 className="text-[12px] text-[#5b6478]"
               >
                 View all

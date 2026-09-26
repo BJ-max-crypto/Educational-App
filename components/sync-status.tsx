@@ -22,6 +22,7 @@ export function SyncButton({ className }: { className?: string }) {
       type="button"
       onClick={sync}
       disabled={syncing}
+      data-m="tap"
       className={cn(
         "rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] disabled:opacity-60",
         className,

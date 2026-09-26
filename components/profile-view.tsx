@@ -13,7 +13,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-white/70 py-2.5 last:border-b-0">
       <span className="text-[14px] text-[#5b6478]">{label}</span>
-      <span className="text-right text-[14px] font-medium text-[#14213d]">{value}</span>
+      <span data-m="break" className="text-right text-[14px] font-medium text-[#14213d]">{value}</span>
     </div>
   );
 }
@@ -29,7 +29,7 @@ export function ProfileView() {
   const subtitle = [grade ? `Grade ${grade}` : null, school].filter(Boolean).join(" · ");
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+    <div data-m="grid1" className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <GlassCard className="flex flex-col items-center px-8 py-10 text-center">
         <span className="flex size-[120px] items-center justify-center rounded-full bg-[#4f7cff] text-[40px] font-semibold text-white">
           {initials(user.name)}
@@ -50,6 +50,7 @@ export function ProfileView() {
             setSaved(false);
           }}
           disabled={editing}
+          data-m="tap"
           className="mt-8 rounded-full bg-white/95 px-7 py-3 text-[15px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(51,64,128,0.18)] disabled:opacity-60 disabled:hover:translate-y-0 motion-reduce:transition-none"
         >
           Edit profile
@@ -57,6 +58,7 @@ export function ProfileView() {
         <button
           type="button"
           onClick={() => signOut({ redirectUrl: "/sign-in" })}
+          data-m="hit"
           className="mt-4 text-[14px] font-semibold text-[#5b6478]"
         >
           Sign out

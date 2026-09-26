@@ -76,6 +76,7 @@ export function GoogleCalendarConnect() {
               type="button"
               onClick={connect}
               disabled={busy}
+              data-m="tap"
               className="rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] disabled:opacity-60 motion-reduce:transition-none"
             >
               {busy ? "Opening Google…" : connected ? "Reconnect" : "Connect"}

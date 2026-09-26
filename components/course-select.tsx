@@ -70,11 +70,13 @@ export function CourseSelect({
           maxLength={60}
           placeholder="Course name"
           aria-label="New course name"
+          data-m="tap"
           className={cn(controlClass, "w-44")}
         />
         <button
           type="submit"
           disabled={pending}
+          data-m="tap"
           className="h-9 rounded-full bg-[#14213d] px-3.5 text-[13px] font-semibold text-white disabled:opacity-60"
         >
           {pending ? "Adding…" : "Add"}
@@ -85,6 +87,7 @@ export function CourseSelect({
             setCreating(false);
             setError(null);
           }}
+          data-m="hit"
           className="text-[13px] font-semibold text-[#5b6478]"
         >
           Cancel
@@ -103,6 +106,7 @@ export function CourseSelect({
   return (
     <select
       aria-label={label}
+      data-m="tap"
       value={current}
       disabled={disabled}
       onClick={(event) => event.stopPropagation()}
