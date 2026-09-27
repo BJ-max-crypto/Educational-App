@@ -5,6 +5,7 @@ import { useState } from "react";
 import { EditProfileForm } from "@/components/edit-profile-form";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { GlassCard } from "@/components/glass-card";
+import { MembersSection } from "@/components/members-section";
 import { GoogleCalendarConnect } from "@/components/google-calendar-connect";
 import { SyncButton, useSyncLabel } from "@/components/sync-status";
 import { initials } from "@/lib/dates";
@@ -120,6 +121,8 @@ export function ProfileView() {
             </div>
           )}
         </section>
+
+        <MembersSection />
 
         <section className="rounded-[24px] bg-white/55 px-6 py-5">
           <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">COURSES</h2>

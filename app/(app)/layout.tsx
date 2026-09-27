@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { AppShell } from "@/components/app-shell";
 import { loadCoursework } from "@/lib/coursework-data";
+import { loadMembers } from "@/lib/members";
 import type { OnboardingMetadata } from "@/lib/onboarding";
 import { shouldAutoSync, syncFeed } from "@/lib/sync";
 import { getUserDb } from "@/lib/user-db";
@@ -33,6 +34,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
   }
 
+  const members = db
+    ? await loadMembers(db.profileId, data.courses).catch((error) => {
+        console.error("loadMembers failed", error);
+        return { username: null, connections: [], classmatesByCourseId: {}, unavailable: true };
+      })
+    : { username: null, connections: [], classmatesByCourseId: {}, unavailable: false };
+
   const name = data.profile?.name || meta.name || user?.fullName || user?.firstName || "Student";
   const email = user?.primaryEmailAddress?.emailAddress ?? "";
 
@@ -57,6 +65,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             }
           : null
       }
+      username={members.username}
+      connections={members.connections}
+      membersUnavailable={members.unavailable}
+      classmatesByCourseId={members.classmatesByCourseId}
     >
       {children}
     </AppShell>

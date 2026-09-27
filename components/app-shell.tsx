@@ -9,7 +9,7 @@ import { TagSuggestionsPanel } from "@/components/tag-suggestions";
 import { TopNav } from "@/components/top-nav";
 import { TimeZoneReporter } from "@/components/time-zone-reporter";
 import { CourseworkProvider, type ShellUser } from "@/lib/coursework";
-import type { Assignment, Course, FeedSummary } from "@/lib/types";
+import type { Assignment, Classmate, Course, FeedSummary, PersonConnection } from "@/lib/types";
 
 export function AppShell({
   user,
@@ -17,6 +17,10 @@ export function AppShell({
   courses,
   assignments,
   feed,
+  username,
+  connections,
+  membersUnavailable,
+  classmatesByCourseId,
   children,
 }: {
   user: ShellUser;
@@ -24,12 +28,25 @@ export function AppShell({
   courses: Course[];
   assignments: Assignment[];
   feed: FeedSummary | null;
+  username: string | null;
+  connections: PersonConnection[];
+  membersUnavailable: boolean;
+  classmatesByCourseId: Record<string, Classmate[]>;
   children: React.ReactNode;
 }) {
   const { user: account } = useUser();
   const initial = user.initial;
   return (
-    <CourseworkProvider user={user} courses={courses} assignments={assignments} feed={feed}>
+    <CourseworkProvider
+      user={user}
+      courses={courses}
+      assignments={assignments}
+      feed={feed}
+      username={username}
+      connections={connections}
+      membersUnavailable={membersUnavailable}
+      classmatesByCourseId={classmatesByCourseId}
+    >
       <TimeZoneReporter known={knownTimeZone} />
       <Background />
       <div className="relative mx-auto min-h-screen w-full max-w-[1440px]">

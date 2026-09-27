@@ -68,6 +68,8 @@ Then run `supabase/migrations/0002_profiles_without_supabase_auth.sql`. The exis
 
 Then run `supabase/migrations/0003_weekly_summary_and_calendar.sql` for the Planner summary cache and Google Calendar busy blocks.
 
+Then run `supabase/migrations/0004_assignment_course_overrides.sql` so course tags survive a sync, and `supabase/migrations/0005_members.sql` for usernames and connection requests.
+
 Then connect Clerk as a third-party auth provider (the JWT-template integration is deprecated):
 
 1. Clerk → Integrations → Supabase, so session tokens include `role: authenticated`.

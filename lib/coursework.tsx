@@ -22,8 +22,10 @@ import { dueThisWeek, initials, isOverdue, isSubmitted, plannerBucket } from "@/
 import type {
   Assignment,
   AssignmentStatus,
+  Classmate,
   Course,
   FeedSummary,
+  PersonConnection,
   PlannerBucket,
 } from "@/lib/types";
 
@@ -65,6 +67,10 @@ type CourseworkValue = {
   assignments: Assignment[];
   courseById: Map<string, Course>;
   feed: FeedSummary | null;
+  username: string | null;
+  connections: PersonConnection[];
+  membersUnavailable: boolean;
+  classmates: (courseId: string) => Classmate[];
   syncing: boolean;
   syncError: string | null;
   saveError: string | null;
@@ -103,12 +109,20 @@ export function CourseworkProvider({
   courses: storedCourses,
   assignments: stored,
   feed,
+  username,
+  connections,
+  membersUnavailable,
+  classmatesByCourseId,
   children,
 }: {
   user: ShellUser;
   courses: Course[];
   assignments: Assignment[];
   feed: FeedSummary | null;
+  username: string | null;
+  connections: PersonConnection[];
+  membersUnavailable: boolean;
+  classmatesByCourseId: Record<string, Classmate[]>;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -280,6 +294,10 @@ export function CourseworkProvider({
       courses,
       assignments,
       courseById,
+      username,
+      connections,
+      membersUnavailable,
+      classmates: (courseId) => classmatesByCourseId[courseId] ?? [],
       taggableCourses: courses.filter((course) => !course.isUnsorted),
       unsortedCourseId,
       unsortedAssignments: sortByDue(
@@ -360,10 +378,13 @@ export function CourseworkProvider({
     tagSuggestions,
     assignCourse,
     assignments,
+    classmatesByCourseId,
+    connections,
     courseById,
     courses,
     createCourse,
     feed,
+    membersUnavailable,
     now,
     saveError,
     sync,
@@ -372,6 +393,7 @@ export function CourseworkProvider({
     toggleDone,
     unsortedCourseId,
     user,
+    username,
   ]);
 
   return <CourseworkContext.Provider value={value}>{children}</CourseworkContext.Provider>;

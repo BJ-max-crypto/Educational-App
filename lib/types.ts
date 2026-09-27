@@ -23,12 +23,21 @@ export type Assignment = {
   url?: string;
 };
 
-export type Member = {
+export type Classmate = {
   id: string;
   name: string;
+  username: string;
   initials: string;
-  grade: string;
   color: string;
+  grade: string | null;
+};
+
+export type PersonConnection = {
+  id: string;
+  profileId: string;
+  name: string;
+  username: string;
+  status: "incoming" | "outgoing" | "accepted";
 };
 
 export type FeedSummary = {
