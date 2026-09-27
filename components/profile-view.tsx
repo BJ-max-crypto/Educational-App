@@ -3,6 +3,7 @@
 import { useClerk } from "@clerk/nextjs";
 import { useState } from "react";
 import { EditProfileForm } from "@/components/edit-profile-form";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { GlassCard } from "@/components/glass-card";
 import { GoogleCalendarConnect } from "@/components/google-calendar-connect";
 import { SyncButton, useSyncLabel } from "@/components/sync-status";
@@ -31,9 +32,7 @@ export function ProfileView() {
   return (
     <div data-m="grid1" className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <GlassCard className="flex flex-col items-center px-8 py-10 text-center">
-        <span className="flex size-[120px] items-center justify-center rounded-full bg-[#4f7cff] text-[40px] font-semibold text-white">
-          {initials(user.name)}
-        </span>
+        <ProfilePhoto initials={initials(user.name)} />
         <h1 className="mt-5 text-[26px] font-semibold tracking-[-0.03em] text-[#14213d]">
           {user.name}
         </h1>
