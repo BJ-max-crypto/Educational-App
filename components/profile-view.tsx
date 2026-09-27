@@ -25,9 +25,30 @@ export function ProfileView() {
   const syncLabel = useSyncLabel();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
   const school = user.school || null;
   const grade = user.grade || null;
   const subtitle = [grade ? `Grade ${grade}` : null, school].filter(Boolean).join(" · ");
+
+  async function share() {
+    const url = window.location.origin;
+    const payload = { title: "Pane", text: "Coursework, in one place.", url };
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share(payload);
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <div data-m="grid1" className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -53,6 +74,14 @@ export function ProfileView() {
           className="mt-8 rounded-full bg-white/95 px-7 py-3 text-[15px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(51,64,128,0.18)] disabled:opacity-60 disabled:hover:translate-y-0 motion-reduce:transition-none"
         >
           Edit profile
+        </button>
+        <button
+          type="button"
+          onClick={() => void share()}
+          data-m="tap"
+          className="mt-3 rounded-full bg-white/95 px-7 py-3 text-[15px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(51,64,128,0.18)] motion-reduce:transition-none"
+        >
+          {copied ? "Link copied" : "Share"}
         </button>
         <button
           type="button"
