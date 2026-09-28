@@ -90,7 +90,7 @@ export function GoogleCalendarConnect() {
         </p>
       ) : null}
       <p className="mt-1 text-right text-[12px] text-[#5b6478]">
-        Read-only. Pane only reads when you&apos;re busy, to plan the weekly summary.
+        Read-only. Catalyst only reads when you&apos;re busy, to plan the weekly summary.
       </p>
     </div>
   );

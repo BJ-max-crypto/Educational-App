@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Pane",
-    short_name: "Pane",
+    name: "Catalyst",
+    short_name: "Catalyst",
     description: "Coursework, in one place.",
     start_url: "/dashboard",
     scope: "/",

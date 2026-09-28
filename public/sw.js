@@ -1,4 +1,4 @@
-// Minimal service worker so Pane can be installed and opened full-screen.
+// Minimal service worker so Catalyst can be installed and opened full-screen.
 // No fetch handler on purpose: every request goes straight to the network, nothing is cached,
 // and there is no offline mode yet.
 

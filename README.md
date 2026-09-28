@@ -1,4 +1,4 @@
-# Pane
+# Catalyst
 
 Coursework dashboard for Dashboard, Planner, Profile, and course portals. Clerk handles sign-in. Supabase stores per-user rows. Courses and assignments come from each student's Schoology iCal feed.
 
@@ -51,7 +51,7 @@ This uses Clerk's Google connection, not a second OAuth flow. Profile → Google
 - If the student already signed in with Google, it calls `externalAccount.reauthorize`.
 - Otherwise it links Google with `user.createExternalAccount`.
 
-The server gets the access token from `clerkClient().users.getUserOauthAccessToken(userId, "google")`. Clerk stores the refresh token and swaps in a fresh access token on that call when the old one has expired. Pane never stores Google tokens. It only stores the next 7 days of busy blocks (`calendar_busy`, reused for an hour). If the refresh fails or access is revoked, Profile and the Planner card show **Reconnect**.
+The server gets the access token from `clerkClient().users.getUserOauthAccessToken(userId, "google")`. Clerk stores the refresh token and swaps in a fresh access token on that call when the old one has expired. Catalyst never stores Google tokens. It only stores the next 7 days of busy blocks (`calendar_busy`, reused for an hour). If the refresh fails or access is revoked, Profile and the Planner card show **Reconnect**.
 
 Setup:
 1. Google Cloud: enable the **Google Calendar API**. On the OAuth consent screen, add the `.../auth/calendar.readonly` scope. While the app is in Testing, add each student as a test user.

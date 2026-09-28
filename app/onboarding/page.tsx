@@ -21,12 +21,12 @@ export default async function OnboardingPage() {
       <Background />
       <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col px-4 py-10">
         <p className="text-center text-[22px] font-semibold tracking-[-0.03em] text-[#14213d]">
-          Pane
+          Catalyst
         </p>
         <div className="flex flex-1 items-center">
           {problems.length > 0 ? (
             <GlassCard className="w-full p-7 sm:p-9">
-              <h1 className="text-[22px] font-semibold text-[#14213d]">Pane isn&apos;t set up yet</h1>
+              <h1 className="text-[22px] font-semibold text-[#14213d]">Catalyst isn&apos;t set up yet</h1>
               <p className="mt-2 text-[14px] text-[#5b6478]">
                 Fix these in Vercel → Settings → Environment Variables, then redeploy:
               </p>

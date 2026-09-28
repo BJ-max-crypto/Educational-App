@@ -20,7 +20,7 @@ type StepId = keyof Answers;
 const steps: { id: StepId; question: string; hint?: string }[] = [
   { id: "name", question: "What's your name?" },
   { id: "grade", question: "What grade are you in?" },
-  { id: "age", question: "How old are you?", hint: "You need to be 13 or older to use Pane." },
+  { id: "age", question: "How old are you?", hint: "You need to be 13 or older to use Catalyst." },
   {
     id: "icalUrl",
     question: "Paste your Schoology calendar link",

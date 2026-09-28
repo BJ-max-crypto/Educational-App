@@ -33,7 +33,7 @@ export function ProfileView() {
 
   async function share() {
     const url = window.location.origin;
-    const payload = { title: "Pane", text: "Coursework, in one place.", url };
+    const payload = { title: "Catalyst", text: "Coursework, in one place.", url };
     if (typeof navigator.share === "function") {
       try {
         await navigator.share(payload);

@@ -21,7 +21,7 @@ type Token = { status: "ok"; token: string } | Exclude<CalendarState, { status: 
 /**
  * Asks Clerk for the user's Google access token. Clerk stores the refresh token and
  * exchanges it for a fresh access token on this call when the old one has expired,
- * so Pane never stores Google tokens itself.
+ * so Catalyst never stores Google tokens itself.
  */
 async function googleToken(clerkUserId: string): Promise<Token> {
   const clerk = await clerkClient();

@@ -52,7 +52,7 @@ export function AppShell({
       <div className="relative mx-auto min-h-screen w-full max-w-[1440px]">
         <header data-m="header" className="flex flex-col items-center gap-4 px-4 pt-6 md:h-[108px] md:flex-row md:px-[84px] md:pt-7">
           <div className="flex w-full items-center justify-between md:contents">
-            <Link href="/dashboard" data-m="hit" aria-label="Pane" className="flex shrink-0 items-center">
+            <Link href="/dashboard" data-m="hit" aria-label="Catalyst" className="flex shrink-0 items-center">
               <Image src="/logo.png" alt="" width={34} height={40} priority className="h-10 w-auto" />
             </Link>
             <Link

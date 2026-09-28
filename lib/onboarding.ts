@@ -31,7 +31,7 @@ export function validateGrade(value: string): Validation<string> {
 export function validateAge(value: string): Validation<number> {
   if (!/^\d{1,3}$/.test(value.trim())) return { error: "Enter your age as a number." };
   const age = Number(value);
-  if (age < MIN_AGE) return { error: `You need to be ${MIN_AGE} or older to use Pane.` };
+  if (age < MIN_AGE) return { error: `You need to be ${MIN_AGE} or older to use Catalyst.` };
   if (age > 120) return { error: "Enter your real age." };
   return { value: age };
 }

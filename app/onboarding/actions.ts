@@ -20,7 +20,7 @@ type OnboardingInput = { name: string; grade: string; age: string; icalUrl: stri
 export async function completeOnboarding(input: OnboardingInput): Promise<OnboardingResult> {
   const problems = serverConfigProblems();
   if (problems.length > 0) {
-    return { ok: false, error: `Pane isn't set up yet: ${problems.join(" ")}` };
+    return { ok: false, error: `Catalyst isn't set up yet: ${problems.join(" ")}` };
   }
   try {
     return await saveOnboarding(input);
@@ -50,7 +50,7 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
   } catch {
     return {
       ok: false,
-      error: "Pane isn't fully set up yet (FEED_ENCRYPTION_KEY is missing). Try again later.",
+      error: "Catalyst isn't fully set up yet (FEED_ENCRYPTION_KEY is missing). Try again later.",
     };
   }
 
@@ -71,7 +71,7 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
       ok: false,
       error: badKey
         ? "Supabase rejected SUPABASE_SERVICE_ROLE_KEY. Check it in Vercel's environment variables."
-        : "Pane's database isn't set up yet (run supabase/migrations/0001_init.sql). Try again later.",
+        : "Catalyst's database isn't set up yet (run supabase/migrations/0001_init.sql). Try again later.",
     };
   }
 
@@ -100,7 +100,7 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
         return {
           ok: false,
           error:
-            "Pane's database needs one more update (run supabase/migrations/0002_profiles_without_supabase_auth.sql). Try again after.",
+            "Catalyst's database needs one more update (run supabase/migrations/0002_profiles_without_supabase_auth.sql). Try again after.",
         };
       }
       return { ok: false, error: "We couldn't save your profile. Try again." };

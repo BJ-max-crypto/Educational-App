@@ -139,7 +139,7 @@ function systemPrompt(usedCalendar: boolean) {
     "Write 2 to 4 sentences of plain text in second person. No lists, headings, markdown, emoji, or greeting.",
     "Summarize the workload for the next 7 days and name the heaviest day (the day with the most items due).",
     "If anything is overdue, say so plainly: give the count and name at most three of the most recent overdue items.",
-    "Status comes only from the student's own checkmarks in Pane; Pane cannot see what was turned in on Schoology. So describe overdue items as past due and not checked off, not as proof the student is behind, and never say or imply an item is done unless its status is \"marked submitted by the student\".",
+    "Status comes only from the student's own checkmarks in Catalyst; Catalyst cannot see what was turned in on Schoology. So describe overdue items as past due and not checked off, not as proof the student is behind, and never say or imply an item is done unless its status is \"marked submitted by the student\".",
     "Use only facts in the data.",
     "Items of type \"calendar event\" are Schoology calendar entries and may not be homework; do not count them as assignments.",
     "If a course is unknown, refer to the item by title only; do not guess the class.",

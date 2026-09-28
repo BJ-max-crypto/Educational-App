@@ -11,10 +11,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Pane",
+  title: "Catalyst",
   description: "Coursework, in one place.",
-  applicationName: "Pane",
-  appleWebApp: { capable: true, title: "Pane", statusBarStyle: "default" },
+  applicationName: "Catalyst",
+  appleWebApp: { capable: true, title: "Catalyst", statusBarStyle: "default" },
   // Next only emits `mobile-web-app-capable`; iOS before 16.4 needs the Apple-prefixed tag.
   other: { "apple-mobile-web-app-capable": "yes" },
 };
