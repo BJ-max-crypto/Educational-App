@@ -89,6 +89,7 @@ async function handle(request: NextRequest, refresh: boolean) {
     calendar,
     timeZone,
     now,
+    profile: data.profile,
   });
 
   let summary: string;
