@@ -32,12 +32,24 @@ export type Classmate = {
   grade: string | null;
 };
 
+export type SharedClass = {
+  /** Lowercased course name. The same key on both accounts means the same class. */
+  key: string;
+  name: string;
+};
+
 export type PersonConnection = {
   id: string;
   profileId: string;
   name: string;
   username: string;
   status: "incoming" | "outgoing" | "accepted";
+  /** Classes you both currently have. */
+  sharedClasses: SharedClass[];
+  /** Class keys this person checked. */
+  myClasses: string[];
+  /** Class keys the other person checked. */
+  theirClasses: string[];
 };
 
 export type FeedSummary = {

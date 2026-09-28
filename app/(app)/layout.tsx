@@ -37,9 +37,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const members = db
     ? await loadMembers(db.profileId, data.courses).catch((error) => {
         console.error("loadMembers failed", error);
-        return { username: null, connections: [], classmatesByCourseId: {}, unavailable: true };
+        const message = error instanceof Error ? error.message : "";
+        const notice = /requester_classes|addressee_classes/i.test(message)
+          ? "Choosing classes needs a database update. Run supabase/migrations/0006_connection_classes.sql."
+          : "Adding people needs a database update. Run supabase/migrations/0005_members.sql, then 0006_connection_classes.sql.";
+        return { username: null, connections: [], classmatesByCourseId: {}, notice };
       })
-    : { username: null, connections: [], classmatesByCourseId: {}, unavailable: false };
+    : { username: null, connections: [], classmatesByCourseId: {}, notice: null };
 
   const name = data.profile?.name || meta.name || user?.fullName || user?.firstName || "Student";
   const email = user?.primaryEmailAddress?.emailAddress ?? "";
@@ -67,7 +71,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       }
       username={members.username}
       connections={members.connections}
-      membersUnavailable={members.unavailable}
+      membersNotice={members.notice}
       classmatesByCourseId={members.classmatesByCourseId}
     >
       {children}

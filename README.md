@@ -34,7 +34,7 @@ To make someone take the quiz again, remove `onboardingComplete` from their publ
 - **Removed events** are kept with `missing_from_feed = true` and hidden.
 - Sync status and the last error are on `feeds` and shown under the Dashboard greeting and on Profile.
 
-The Members grid is still placeholder data: the iCal feed has no class roster.
+Classmates are people you both approved, and only on a class you both checked. The feed has no roster, so a shared class is two courses with the same name.
 
 ## Planner "This week" summary
 
@@ -68,7 +68,7 @@ Then run `supabase/migrations/0002_profiles_without_supabase_auth.sql`. The exis
 
 Then run `supabase/migrations/0003_weekly_summary_and_calendar.sql` for the Planner summary cache and Google Calendar busy blocks.
 
-Then run `supabase/migrations/0004_assignment_course_overrides.sql` so course tags survive a sync, and `supabase/migrations/0005_members.sql` for usernames and connection requests.
+Then run `supabase/migrations/0004_assignment_course_overrides.sql` so course tags survive a sync, `supabase/migrations/0005_members.sql` for usernames and connection requests, and `supabase/migrations/0006_connection_classes.sql` so each person can choose the classes they share.
 
 Then connect Clerk as a third-party auth provider (the JWT-template integration is deprecated):
 

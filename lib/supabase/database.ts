@@ -189,6 +189,8 @@ export type Database = {
           requester_id: string;
           addressee_id: string;
           status: "pending" | "accepted";
+          requester_classes: string[];
+          addressee_classes: string[];
           created_at: string;
           updated_at: string;
         };
@@ -197,10 +199,14 @@ export type Database = {
           requester_id: string;
           addressee_id: string;
           status?: "pending" | "accepted";
+          requester_classes?: string[];
+          addressee_classes?: string[];
           updated_at?: string;
         };
         Update: {
           status?: "pending" | "accepted";
+          requester_classes?: string[];
+          addressee_classes?: string[];
           updated_at?: string;
         };
         Relationships: [];

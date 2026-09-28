@@ -3,20 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  listSharedClasses,
   removeConnection,
   requestConnection,
   respondToConnection,
   searchUsernames,
+  setMyClasses,
   setUsername,
   type UsernameMatch,
 } from "@/app/(app)/member-actions";
 import { useCoursework } from "@/lib/coursework";
+import type { PersonConnection, SharedClass } from "@/lib/types";
 
 const fieldClass =
   "h-11 w-full rounded-full border border-white/90 bg-white/85 px-4 text-[16px] text-[#14213d] outline-none focus:border-[#4f7cff] focus:ring-4 focus:ring-[#4f7cff]/15";
 
 export function MembersSection() {
-  const { username, connections, membersUnavailable } = useCoursework();
+  const { username, connections, membersNotice } = useCoursework();
   const router = useRouter();
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
@@ -24,6 +27,9 @@ export function MembersSection() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [picking, setPicking] = useState<string | null>(null);
+  const [shared, setShared] = useState<SharedClass[]>([]);
+  const [checked, setChecked] = useState<string[]>([]);
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,6 +71,22 @@ export function MembersSection() {
     };
   }, [query]);
 
+  async function startAdd(profileId: string) {
+    setPicking(profileId);
+    setChecked([]);
+    setShared([]);
+    setError(null);
+    const result = await listSharedClasses(profileId).catch(() => ({
+      ok: false as const,
+      error: "Couldn't load your shared classes.",
+    }));
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setShared(result.classes);
+  }
+
   async function run(action: () => Promise<{ ok: boolean; error?: string }>) {
     setPending(true);
     setError(null);
@@ -86,13 +108,13 @@ export function MembersSection() {
     <section id="members" className="scroll-mt-28 rounded-[24px] bg-white/55 px-6 py-5">
       <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">MEMBERS</h2>
       <p className="mt-2 text-[14px] text-[#5b6478]">
-        Search a username. They approve the request on their profile before you&apos;re connected.
-        Once you both have the same course, they show up on that class.
+        Search a username and check the classes you both have. They do the same when they approve.
+        You show up on a class only when both of you checked it.
       </p>
 
-      {membersUnavailable ? (
+      {membersNotice ? (
         <p role="alert" className="mt-3 text-[14px] font-semibold text-[#e5484d]">
-          Adding people needs a database update (supabase/migrations/0005_members.sql).
+          {membersNotice}
         </p>
       ) : (
         <>
@@ -150,28 +172,49 @@ export function MembersSection() {
               />
             </label>
             {open && matches ? (
-              <ul className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-2xl border border-white/90 bg-white/95 py-1 text-left shadow-[0_12px_32px_rgba(51,64,128,0.16)]">
+              <ul className="absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border border-white/90 bg-white/95 py-1 text-left shadow-[0_12px_32px_rgba(51,64,128,0.16)]">
                 {matches.length === 0 ? (
                   <li className="px-4 py-3 text-[14px] text-[#5b6478]">No account uses that username.</li>
                 ) : (
                   matches.map((person) => (
-                    <li key={person.profileId} className="flex items-center gap-3 px-3 py-2">
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14px] font-semibold text-[#14213d]">
-                          {person.name}
+                    <li key={person.profileId} className="px-3 py-2">
+                      <div className="flex items-center gap-3">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] font-semibold text-[#14213d]">
+                            {person.name}
+                          </span>
+                          <span className="block truncate text-[12px] text-[#5b6478]">@{person.username}</span>
                         </span>
-                        <span className="block truncate text-[12px] text-[#5b6478]">@{person.username}</span>
-                      </span>
-                      <MatchAction
-                        person={person}
-                        disabled={pending}
-                        onAdd={() => void run(() => requestConnection(person.profileId))}
-                        onApprove={() =>
-                          person.connectionId
-                            ? void run(() => respondToConnection(person.connectionId!, true))
-                            : undefined
-                        }
-                      />
+                        <MatchAction
+                          person={person}
+                          disabled={pending}
+                          picking={picking === person.profileId}
+                          onAdd={() => void startAdd(person.profileId)}
+                        />
+                      </div>
+                      {picking === person.profileId ? (
+                        <div className="mt-2">
+                          <ClassChecks
+                            classes={shared}
+                            checked={checked}
+                            disabled={pending}
+                            onToggle={(key) =>
+                              setChecked((current) =>
+                                current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            disabled={pending}
+                            data-m="tap"
+                            onClick={() => void run(() => requestConnection(person.profileId, checked))}
+                            className="mt-2 h-9 rounded-full bg-[#14213d] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
+                          >
+                            Send request
+                          </button>
+                        </div>
+                      ) : null}
                     </li>
                   ))
                 )}
@@ -182,27 +225,15 @@ export function MembersSection() {
           {incoming.length > 0 ? (
             <ul className="mt-4 space-y-2">
               {incoming.map((person) => (
-                <li key={person.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/70 px-3 py-2.5">
-                  <PersonText name={person.name} username={person.username} note="Wants to connect" />
-                  <button
-                    type="button"
-                    disabled={pending}
-                    data-m="tap"
-                    onClick={() => void run(() => respondToConnection(person.id, true))}
-                    className="h-9 rounded-full bg-[#14213d] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    data-m="tap"
-                    onClick={() => void run(() => respondToConnection(person.id, false))}
-                    className="h-9 rounded-full px-3 text-[13px] font-semibold text-[#5b6478] disabled:opacity-60"
-                  >
-                    Decline
-                  </button>
-                </li>
+                <ConnectionRow
+                  key={`${person.id}:${person.myClasses.join(",")}`}
+                  person={person}
+                  note="Wants to connect"
+                  disabled={pending}
+                  onApprove={(keys) => void run(() => respondToConnection(person.id, true, keys))}
+                  onSecondary={() => void run(() => respondToConnection(person.id, false))}
+                  secondaryLabel="Decline"
+                />
               ))}
             </ul>
           ) : null}
@@ -210,18 +241,15 @@ export function MembersSection() {
           {outgoing.length > 0 ? (
             <ul className="mt-3 space-y-2">
               {outgoing.map((person) => (
-                <li key={person.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/70 px-3 py-2.5">
-                  <PersonText name={person.name} username={person.username} note="Waiting for them to approve" />
-                  <button
-                    type="button"
-                    disabled={pending}
-                    data-m="tap"
-                    onClick={() => void run(() => removeConnection(person.id))}
-                    className="h-9 rounded-full px-3 text-[13px] font-semibold text-[#5b6478] disabled:opacity-60"
-                  >
-                    Cancel
-                  </button>
-                </li>
+                <ConnectionRow
+                  key={`${person.id}:${person.myClasses.join(",")}`}
+                  person={person}
+                  note="Waiting for them to approve"
+                  disabled={pending}
+                  onChange={(keys) => void run(() => setMyClasses(person.id, keys))}
+                  onSecondary={() => void run(() => removeConnection(person.id))}
+                  secondaryLabel="Cancel"
+                />
               ))}
             </ul>
           ) : null}
@@ -229,18 +257,15 @@ export function MembersSection() {
           {accepted.length > 0 ? (
             <ul className="mt-3 space-y-2">
               {accepted.map((person) => (
-                <li key={person.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/70 px-3 py-2.5">
-                  <PersonText name={person.name} username={person.username} note="Connected" />
-                  <button
-                    type="button"
-                    disabled={pending}
-                    data-m="tap"
-                    onClick={() => void run(() => removeConnection(person.id))}
-                    className="h-9 rounded-full px-3 text-[13px] font-semibold text-[#5b6478] disabled:opacity-60"
-                  >
-                    Remove
-                  </button>
-                </li>
+                <ConnectionRow
+                  key={`${person.id}:${person.myClasses.join(",")}`}
+                  person={person}
+                  note="Connected"
+                  disabled={pending}
+                  onChange={(keys) => void run(() => setMyClasses(person.id, keys))}
+                  onSecondary={() => void run(() => removeConnection(person.id))}
+                  secondaryLabel="Remove"
+                />
               ))}
             </ul>
           ) : null}
@@ -270,13 +295,13 @@ function PersonText({ name, username, note }: { name: string; username: string; 
 function MatchAction({
   person,
   disabled,
+  picking,
   onAdd,
-  onApprove,
 }: {
   person: UsernameMatch;
   disabled: boolean;
+  picking: boolean;
   onAdd: () => void;
-  onApprove: () => void;
 }) {
   if (person.status === "accepted") {
     return <span className="text-[12px] font-semibold text-[#1b7f60]">Connected</span>;
@@ -285,18 +310,9 @@ function MatchAction({
     return <span className="text-[12px] font-semibold text-[#5b6478]">Requested</span>;
   }
   if (person.status === "incoming") {
-    return (
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onApprove}
-        data-m="tap"
-        className="h-9 rounded-full bg-[#14213d] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
-      >
-        Approve
-      </button>
-    );
+    return <span className="text-[12px] font-semibold text-[#5b6478]">Answer below</span>;
   }
+  if (picking) return null;
   return (
     <button
       type="button"
@@ -307,5 +323,102 @@ function MatchAction({
     >
       Add
     </button>
+  );
+}
+
+function ClassChecks({
+  classes,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  classes: SharedClass[];
+  checked: string[];
+  disabled: boolean;
+  onToggle: (key: string) => void;
+}) {
+  if (classes.length === 0) {
+    return <p className="text-[12px] text-[#5b6478]">You don&apos;t share a class yet.</p>;
+  }
+  return (
+    <ul className="space-y-1">
+      {classes.map((item) => (
+        <li key={item.key}>
+          <label data-m="tap" className="flex items-center gap-2 text-[14px] font-medium text-[#14213d]">
+            <input
+              type="checkbox"
+              className="size-4 accent-[#4f7cff]"
+              checked={checked.includes(item.key)}
+              disabled={disabled}
+              onChange={() => onToggle(item.key)}
+            />
+            {item.name}
+          </label>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ConnectionRow({
+  person,
+  note,
+  disabled,
+  onChange,
+  onApprove,
+  onSecondary,
+  secondaryLabel,
+}: {
+  person: PersonConnection;
+  note: string;
+  disabled: boolean;
+  onChange?: (keys: string[]) => void;
+  onApprove?: (keys: string[]) => void;
+  onSecondary: () => void;
+  secondaryLabel: string;
+}) {
+  const [checked, setChecked] = useState(person.myClasses);
+  const theirs = person.sharedClasses
+    .filter((item) => person.theirClasses.includes(item.key))
+    .map((item) => item.name);
+
+  function toggle(key: string) {
+    const next = checked.includes(key) ? checked.filter((item) => item !== key) : [...checked, key];
+    setChecked(next);
+    onChange?.(next);
+  }
+
+  return (
+    <li className="rounded-2xl bg-white/70 px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <PersonText name={person.name} username={person.username} note={note} />
+        {onApprove ? (
+          <button
+            type="button"
+            disabled={disabled}
+            data-m="tap"
+            onClick={() => onApprove(checked)}
+            className="h-9 rounded-full bg-[#14213d] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
+          >
+            Approve
+          </button>
+        ) : null}
+        <button
+          type="button"
+          disabled={disabled}
+          data-m="tap"
+          onClick={onSecondary}
+          className="h-9 rounded-full px-3 text-[13px] font-semibold text-[#5b6478] disabled:opacity-60"
+        >
+          {secondaryLabel}
+        </button>
+      </div>
+      <div className="mt-2">
+        <ClassChecks classes={person.sharedClasses} checked={checked} disabled={disabled} onToggle={toggle} />
+        <p className="mt-1 text-[12px] text-[#5b6478]">
+          {theirs.length ? `They checked ${theirs.join(", ")}.` : "They haven't checked a class."}
+        </p>
+      </div>
+    </li>
   );
 }

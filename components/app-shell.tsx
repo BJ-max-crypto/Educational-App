@@ -19,7 +19,7 @@ export function AppShell({
   feed,
   username,
   connections,
-  membersUnavailable,
+  membersNotice,
   classmatesByCourseId,
   children,
 }: {
@@ -30,7 +30,7 @@ export function AppShell({
   feed: FeedSummary | null;
   username: string | null;
   connections: PersonConnection[];
-  membersUnavailable: boolean;
+  membersNotice: string | null;
   classmatesByCourseId: Record<string, Classmate[]>;
   children: React.ReactNode;
 }) {
@@ -44,7 +44,7 @@ export function AppShell({
       feed={feed}
       username={username}
       connections={connections}
-      membersUnavailable={membersUnavailable}
+      membersNotice={membersNotice}
       classmatesByCourseId={classmatesByCourseId}
     >
       <TimeZoneReporter known={knownTimeZone} />

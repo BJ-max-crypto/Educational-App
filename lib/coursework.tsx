@@ -69,7 +69,7 @@ type CourseworkValue = {
   feed: FeedSummary | null;
   username: string | null;
   connections: PersonConnection[];
-  membersUnavailable: boolean;
+  membersNotice: string | null;
   classmates: (courseId: string) => Classmate[];
   syncing: boolean;
   syncError: string | null;
@@ -111,7 +111,7 @@ export function CourseworkProvider({
   feed,
   username,
   connections,
-  membersUnavailable,
+  membersNotice,
   classmatesByCourseId,
   children,
 }: {
@@ -121,7 +121,7 @@ export function CourseworkProvider({
   feed: FeedSummary | null;
   username: string | null;
   connections: PersonConnection[];
-  membersUnavailable: boolean;
+  membersNotice: string | null;
   classmatesByCourseId: Record<string, Classmate[]>;
   children: React.ReactNode;
 }) {
@@ -296,7 +296,7 @@ export function CourseworkProvider({
       courseById,
       username,
       connections,
-      membersUnavailable,
+      membersNotice,
       classmates: (courseId) => classmatesByCourseId[courseId] ?? [],
       taggableCourses: courses.filter((course) => !course.isUnsorted),
       unsortedCourseId,
@@ -384,7 +384,7 @@ export function CourseworkProvider({
     courses,
     createCourse,
     feed,
-    membersUnavailable,
+    membersNotice,
     now,
     saveError,
     sync,
