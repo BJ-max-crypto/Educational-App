@@ -4,11 +4,13 @@ import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { getBusyBlocks } from "@/lib/google-calendar";
+import { courseKey } from "@/lib/members";
 import { validateGrade, validateName, validateSchool } from "@/lib/onboarding";
 import { suggestSimilar } from "@/lib/suggest";
 import { syncFeed } from "@/lib/sync";
 import type { AssignmentStatus } from "@/lib/types";
 import { isValidZone } from "@/lib/timezone";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserDb } from "@/lib/user-db";
 import { storedTimeZone } from "@/lib/user-timezone";
 
@@ -345,4 +347,106 @@ export async function suggestForCourse(courseId: string): Promise<SuggestionsRes
     console.error("suggestForCourse failed", error);
     return { ok: false, error: "Couldn't look for similar items." };
   }
+}
+
+/**
+ * Drops one of the student's classes. Work in it moves to Unsorted. People they
+ * shared it with stop seeing them on that class. Unsorted itself cannot be left.
+ */
+export async function leaveCourse(courseId: string): Promise<ActionResult> {
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Your session ended. Sign in again." };
+  const db = await getUserDb(userId);
+  if (!db) return { ok: false, error: "Finish onboarding first." };
+  const { supabase, profileId } = db;
+
+  const { data: courses, error: coursesError } = await supabase
+    .from("courses")
+    .select("id, name, is_unsorted")
+    .eq("user_id", profileId);
+  if (coursesError) {
+    console.error("leaveCourse courses", coursesError.message);
+    return { ok: false, error: "Couldn't leave that class. Try again." };
+  }
+  const course = courses.find((row) => row.id === courseId);
+  if (!course) return { ok: false, error: "That class is not on your list." };
+  if (course.is_unsorted) return { ok: false, error: "Unsorted stays on your list." };
+
+  let unsortedId = courses.find((row) => row.is_unsorted)?.id;
+  if (!unsortedId) {
+    const { data: created, error } = await supabase
+      .from("courses")
+      .upsert(
+        { user_id: profileId, name: "Unsorted", color: COURSE_COLORS[0], is_unsorted: true },
+        { onConflict: "user_id,name" },
+      )
+      .select("id")
+      .single();
+    if (error || !created) {
+      console.error("leaveCourse unsorted", error?.message);
+      return { ok: false, error: "Couldn't leave that class. Try again." };
+    }
+    unsortedId = created.id;
+  }
+
+  const now = new Date().toISOString();
+  const { error: moveError } = await supabase
+    .from("assignments")
+    .update({ course_id: unsortedId, course_source: "unsorted", updated_at: now })
+    .eq("user_id", profileId)
+    .eq("course_id", courseId);
+  if (moveError) {
+    console.error("leaveCourse move", moveError.message);
+    return { ok: false, error: "Couldn't leave that class. Try again." };
+  }
+
+  const { error: overrideError } = await supabase
+    .from("assignment_course_overrides")
+    .delete()
+    .eq("user_id", profileId)
+    .eq("course_id", courseId);
+  if (overrideError && !/assignment_course_overrides/i.test(overrideError.message)) {
+    console.error("leaveCourse overrides", overrideError.message);
+  }
+
+  const key = courseKey(course.name);
+  try {
+    const admin = createAdminClient();
+    const { data: links, error: linksError } = await admin
+      .from("connections")
+      .select("id, requester_classes, addressee_classes")
+      .or(`requester_id.eq.${profileId},addressee_id.eq.${profileId}`);
+    if (linksError) {
+      if (!/connections|requester_classes|addressee_classes/i.test(linksError.message)) {
+        console.error("leaveCourse connections", linksError.message);
+      }
+    } else {
+      for (const link of links ?? []) {
+        const requester = link.requester_classes.filter((item) => item !== key);
+        const addressee = link.addressee_classes.filter((item) => item !== key);
+        if (
+          requester.length === link.requester_classes.length &&
+          addressee.length === link.addressee_classes.length
+        ) {
+          continue;
+        }
+        const { error } = await admin
+          .from("connections")
+          .update({ requester_classes: requester, addressee_classes: addressee, updated_at: now })
+          .eq("id", link.id);
+        if (error) console.error("leaveCourse unshare", error.message);
+      }
+    }
+  } catch (error) {
+    console.error("leaveCourse unshare", error);
+  }
+
+  const { error: deleteError } = await supabase.from("courses").delete().eq("user_id", profileId).eq("id", courseId);
+  if (deleteError) {
+    console.error("leaveCourse delete", deleteError.message);
+    return { ok: false, error: "Couldn't leave that class. Try again." };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AssignmentRow } from "@/components/assignment-row";
 import { CourseSelect } from "@/components/course-select";
 import { GlassCard } from "@/components/glass-card";
+import { LeaveClassButton } from "@/components/leave-class-button";
 import { MemberAvatar } from "@/components/member-avatar";
 import { StatusChip, type ChipTone } from "@/components/status-chip";
 import { dueDetail, isOverdue } from "@/lib/dates";
@@ -70,14 +71,14 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
       <Link href="/dashboard" data-m="hit" className="text-[14px] font-medium text-[#5b6478]">
         ‹ Dashboard
       </Link>
-      <div className="mt-3 flex items-center gap-4">
+      <div className="mt-3 flex flex-wrap items-center gap-4">
         <span
           className="flex size-14 items-center justify-center rounded-[18px] text-[18px] font-bold text-white"
           style={{ backgroundColor: course.color }}
         >
           {course.initials}
         </span>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-[32px] font-semibold leading-none tracking-[-0.03em] text-[#14213d]">
             {course.name}
           </h1>
@@ -85,6 +86,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
             {course.period ? `${course.teacher} · ${course.period}` : course.teacher}
           </p>
         </div>
+        {course.isUnsorted ? null : <LeaveClassButton courseId={course.id} courseName={course.name} />}
       </div>
 
       <div data-m="grid1" className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.95fr)]">
