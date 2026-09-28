@@ -2,8 +2,8 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
-import { checkedClasses, coursesInCommon, normalizeUsername, validateUsername } from "@/lib/members";
-import type { SharedClass } from "@/lib/types";
+import { COURSE_COLORS } from "@/lib/course-colors";
+import { courseKey, normalizeUsername, shareableKeys, validateUsername } from "@/lib/members";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserDb } from "@/lib/user-db";
 
@@ -54,6 +54,7 @@ export type UsernameMatch = {
   profileId: string;
   name: string;
   username: string;
+  school: string | null;
   status: "none" | "incoming" | "outgoing" | "accepted";
   connectionId: string | null;
 };
@@ -70,7 +71,7 @@ export async function searchUsernames(
   const escaped = query.replace(/[\\%_]/g, (char) => `\\${char}`);
   const { data, error } = await who.admin
     .from("profiles")
-    .select("id, name, username")
+    .select("id, name, username, school")
     .like("username", `${escaped}%`)
     .neq("id", who.profileId)
     .limit(8);
@@ -114,30 +115,14 @@ export async function searchUsernames(
         profileId: row.id,
         name: row.name?.trim() || row.username!,
         username: row.username!,
+        school: row.school?.trim() || null,
         status: status.get(row.id)?.status ?? "none",
         connectionId: status.get(row.id)?.connectionId ?? null,
       })),
   };
 }
 
-export async function listSharedClasses(
-  profileId: string,
-): Promise<{ ok: true; classes: SharedClass[] } | { ok: false; error: string }> {
-  const who = await caller();
-  if (!("profileId" in who)) return { ok: false, error: who.error };
-  if (profileId === who.profileId) return { ok: true, classes: [] };
-  try {
-    const classes = await coursesInCommon(who.admin, who.profileId, profileId);
-    return { ok: true, classes };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (unavailable(message)) return { ok: false, error: migrationError(message) };
-    console.error("listSharedClasses failed", error);
-    return { ok: false, error: "Couldn't load your shared classes." };
-  }
-}
-
-export async function requestConnection(profileId: string, classKeys: string[]): Promise<Result> {
+export async function requestConnection(profileId: string): Promise<Result> {
   const who = await caller();
   if (!("profileId" in who)) return { ok: false, error: who.error };
   if (profileId === who.profileId) return { ok: false, error: "That's you." };
@@ -170,19 +155,11 @@ export async function requestConnection(profileId: string, classKeys: string[]):
   }
   if (row?.status === "pending") return { ok: false, error: "They already asked you. Approve it below." };
 
-  let classes: SharedClass[] = [];
-  try {
-    classes = await coursesInCommon(who.admin, who.profileId, profileId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (unavailable(message)) return { ok: false, error: migrationError(message) };
-    return { ok: false, error: "Couldn't send that request." };
-  }
   const { error } = await who.admin.from("connections").insert({
     requester_id: who.profileId,
     addressee_id: profileId,
     status: "pending",
-    requester_classes: checkedClasses(classKeys, classes),
+    requester_classes: [],
     addressee_classes: [],
   });
   if (error) {
@@ -214,12 +191,8 @@ async function ownConnection(connectionId: string) {
   return { ...who, row: data } as const;
 }
 
-/** The person who was asked approves or declines. Approving saves the classes they checked. */
-export async function respondToConnection(
-  connectionId: string,
-  accept: boolean,
-  classKeys: string[] = [],
-): Promise<Result> {
+/** The person who was asked approves or declines. Classes stay hidden until they approve. */
+export async function respondToConnection(connectionId: string, accept: boolean): Promise<Result> {
   const owned = await ownConnection(connectionId);
   if ("error" in owned && !("row" in owned)) return { ok: false, error: owned.error };
   if (!("row" in owned)) return { ok: false, error: "Couldn't update that request." };
@@ -227,25 +200,8 @@ export async function respondToConnection(
     return { ok: false, error: "Only the person who was asked can approve this." };
   }
   const now = new Date().toISOString();
-  let classes: SharedClass[] = [];
-  if (accept) {
-    try {
-      classes = await coursesInCommon(owned.admin, owned.profileId, owned.row.requester_id);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      if (unavailable(message)) return { ok: false, error: migrationError(message) };
-      return { ok: false, error: "Couldn't update that request." };
-    }
-  }
   const query = accept
-    ? owned.admin
-        .from("connections")
-        .update({
-          status: "accepted",
-          addressee_classes: checkedClasses(classKeys, classes),
-          updated_at: now,
-        })
-        .eq("id", connectionId)
+    ? owned.admin.from("connections").update({ status: "accepted", updated_at: now }).eq("id", connectionId)
     : owned.admin.from("connections").delete().eq("id", connectionId);
   const { error } = await query;
   if (error) {
@@ -256,29 +212,90 @@ export async function respondToConnection(
   return { ok: true };
 }
 
-/** Either person changes the classes they checked. The other person's checks stay put. */
-export async function setMyClasses(connectionId: string, classKeys: string[]): Promise<Result> {
+/** Gives the other person a course with this name when they don't already have it. */
+async function ensureCourse(
+  admin: ReturnType<typeof createAdminClient>,
+  profileId: string,
+  name: string,
+  color: string,
+) {
+  const key = courseKey(name);
+  const { data, error } = await admin.from("courses").select("name, is_unsorted").eq("user_id", profileId);
+  if (error) throw new Error(error.message);
+  if ((data ?? []).some((row) => !row.is_unsorted && courseKey(row.name) === key)) return;
+  const named = (data ?? []).filter((row) => !row.is_unsorted).length;
+  const { error: insertError } = await admin.from("courses").insert({
+    user_id: profileId,
+    name,
+    color: color || COURSE_COLORS[named % COURSE_COLORS.length],
+    is_unsorted: false,
+  });
+  if (insertError && !/unique|duplicate/i.test(insertError.message)) throw new Error(insertError.message);
+}
+
+/**
+ * After both people have approved, either person checks the classes they want to share.
+ * Each checked class is created for the other person when they don't have it, and both
+ * are marked as sharing it.
+ */
+export async function setSharedClasses(connectionId: string, classKeys: string[]): Promise<Result> {
   const owned = await ownConnection(connectionId);
   if (!("row" in owned)) return { ok: false, error: "error" in owned ? owned.error : "Couldn't update that." };
+  if (owned.row.status !== "accepted") {
+    return { ok: false, error: "You can share classes after they approve." };
+  }
   const otherId =
     owned.row.requester_id === owned.profileId ? owned.row.addressee_id : owned.row.requester_id;
-  let classes: SharedClass[] = [];
-  try {
-    classes = await coursesInCommon(owned.admin, owned.profileId, otherId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (unavailable(message)) return { ok: false, error: migrationError(message) };
-    return { ok: false, error: "Couldn't update those classes." };
-  }
-  const chosen = checkedClasses(classKeys, classes);
-  const patch =
-    owned.row.requester_id === owned.profileId
-      ? { requester_classes: chosen, updated_at: new Date().toISOString() }
-      : { addressee_classes: chosen, updated_at: new Date().toISOString() };
-  const { error } = await owned.admin.from("connections").update(patch).eq("id", connectionId);
+  const { data, error } = await owned.admin
+    .from("courses")
+    .select("user_id, name, color, is_unsorted")
+    .eq("user_id", owned.profileId);
   if (error) {
     if (unavailable(error.message)) return { ok: false, error: migrationError(error.message) };
-    console.error("setMyClasses failed", error.message);
+    return { ok: false, error: "Couldn't update those classes." };
+  }
+  const mine = new Map<string, { name: string; color: string }>();
+  for (const row of data ?? []) {
+    if (row.is_unsorted) continue;
+    const key = courseKey(row.name);
+    if (key && !mine.has(key)) mine.set(key, { name: row.name.trim(), color: row.color });
+  }
+  const chosen = shareableKeys(classKeys, [...mine.keys()]);
+
+  const { data: link, error: linkError } = await owned.admin
+    .from("connections")
+    .select("requester_classes, addressee_classes")
+    .eq("id", connectionId)
+    .maybeSingle();
+  if (linkError || !link) {
+    if (linkError && unavailable(linkError.message)) return { ok: false, error: migrationError(linkError.message) };
+    return { ok: false, error: "Couldn't update those classes." };
+  }
+  const previous = [...new Set([...link.requester_classes, ...link.addressee_classes])];
+  const next = [...chosen, ...previous.filter((key) => !mine.has(key))].slice(0, 40);
+
+  try {
+    for (const key of chosen) {
+      const source = mine.get(key);
+      if (!source) continue;
+      await ensureCourse(owned.admin, otherId, source.name, source.color);
+    }
+  } catch (caught) {
+    console.error("setSharedClasses course", caught);
+    return { ok: false, error: "Couldn't add that class for them." };
+  }
+
+  const { error: updateError } = await owned.admin
+    .from("connections")
+    .update({
+      requester_classes: next,
+      addressee_classes: next,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", connectionId);
+  if (updateError) {
+    if (unavailable(updateError.message)) return { ok: false, error: migrationError(updateError.message) };
+    console.error("setSharedClasses failed", updateError.message);
     return { ok: false, error: "Couldn't update those classes." };
   }
   revalidatePath("/", "layout");

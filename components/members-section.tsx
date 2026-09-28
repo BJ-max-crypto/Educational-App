@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  listSharedClasses,
   removeConnection,
   requestConnection,
   respondToConnection,
   searchUsernames,
-  setMyClasses,
+  setSharedClasses,
   setUsername,
   type UsernameMatch,
 } from "@/app/(app)/member-actions";
@@ -27,9 +26,6 @@ export function MembersSection() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [picking, setPicking] = useState<string | null>(null);
-  const [shared, setShared] = useState<SharedClass[]>([]);
-  const [checked, setChecked] = useState<string[]>([]);
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,22 +67,6 @@ export function MembersSection() {
     };
   }, [query]);
 
-  async function startAdd(profileId: string) {
-    setPicking(profileId);
-    setChecked([]);
-    setShared([]);
-    setError(null);
-    const result = await listSharedClasses(profileId).catch(() => ({
-      ok: false as const,
-      error: "Couldn't load your shared classes.",
-    }));
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setShared(result.classes);
-  }
-
   async function run(action: () => Promise<{ ok: boolean; error?: string }>) {
     setPending(true);
     setError(null);
@@ -108,8 +88,8 @@ export function MembersSection() {
     <section id="members" className="scroll-mt-28 rounded-[24px] bg-white/55 px-6 py-5">
       <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">MEMBERS</h2>
       <p className="mt-2 text-[14px] text-[#5b6478]">
-        Search a username and check the classes you both have. They do the same when they approve.
-        You show up on a class only when both of you checked it.
+        Search a username. After they approve, check the classes you want to share. They join that
+        class even if they hadn&apos;t added it.
       </p>
 
       {membersNotice ? (
@@ -184,37 +164,16 @@ export function MembersSection() {
                             {person.name}
                           </span>
                           <span className="block truncate text-[12px] text-[#5b6478]">@{person.username}</span>
+                          {person.school ? (
+                            <span className="block truncate text-[12px] text-[#5b6478]">{person.school}</span>
+                          ) : null}
                         </span>
                         <MatchAction
                           person={person}
                           disabled={pending}
-                          picking={picking === person.profileId}
-                          onAdd={() => void startAdd(person.profileId)}
+                          onAdd={() => void run(() => requestConnection(person.profileId))}
                         />
                       </div>
-                      {picking === person.profileId ? (
-                        <div className="mt-2">
-                          <ClassChecks
-                            classes={shared}
-                            checked={checked}
-                            disabled={pending}
-                            onToggle={(key) =>
-                              setChecked((current) =>
-                                current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
-                              )
-                            }
-                          />
-                          <button
-                            type="button"
-                            disabled={pending}
-                            data-m="tap"
-                            onClick={() => void run(() => requestConnection(person.profileId, checked))}
-                            className="mt-2 h-9 rounded-full bg-[#14213d] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
-                          >
-                            Send request
-                          </button>
-                        </div>
-                      ) : null}
                     </li>
                   ))
                 )}
@@ -230,7 +189,7 @@ export function MembersSection() {
                   person={person}
                   note="Wants to connect"
                   disabled={pending}
-                  onApprove={(keys) => void run(() => respondToConnection(person.id, true, keys))}
+                  onApprove={() => void run(() => respondToConnection(person.id, true))}
                   onSecondary={() => void run(() => respondToConnection(person.id, false))}
                   secondaryLabel="Decline"
                 />
@@ -246,7 +205,6 @@ export function MembersSection() {
                   person={person}
                   note="Waiting for them to approve"
                   disabled={pending}
-                  onChange={(keys) => void run(() => setMyClasses(person.id, keys))}
                   onSecondary={() => void run(() => removeConnection(person.id))}
                   secondaryLabel="Cancel"
                 />
@@ -262,7 +220,7 @@ export function MembersSection() {
                   person={person}
                   note="Connected"
                   disabled={pending}
-                  onChange={(keys) => void run(() => setMyClasses(person.id, keys))}
+                  onChange={(keys) => void run(() => setSharedClasses(person.id, keys))}
                   onSecondary={() => void run(() => removeConnection(person.id))}
                   secondaryLabel="Remove"
                 />
@@ -295,12 +253,10 @@ function PersonText({ name, username, note }: { name: string; username: string; 
 function MatchAction({
   person,
   disabled,
-  picking,
   onAdd,
 }: {
   person: UsernameMatch;
   disabled: boolean;
-  picking: boolean;
   onAdd: () => void;
 }) {
   if (person.status === "accepted") {
@@ -312,7 +268,6 @@ function MatchAction({
   if (person.status === "incoming") {
     return <span className="text-[12px] font-semibold text-[#5b6478]">Answer below</span>;
   }
-  if (picking) return null;
   return (
     <button
       type="button"
@@ -338,7 +293,7 @@ function ClassChecks({
   onToggle: (key: string) => void;
 }) {
   if (classes.length === 0) {
-    return <p className="text-[12px] text-[#5b6478]">You don&apos;t share a class yet.</p>;
+    return <p className="text-[12px] text-[#5b6478]">You don&apos;t have a class to share yet.</p>;
   }
   return (
     <ul className="space-y-1">
@@ -373,14 +328,11 @@ function ConnectionRow({
   note: string;
   disabled: boolean;
   onChange?: (keys: string[]) => void;
-  onApprove?: (keys: string[]) => void;
+  onApprove?: () => void;
   onSecondary: () => void;
   secondaryLabel: string;
 }) {
   const [checked, setChecked] = useState(person.myClasses);
-  const theirs = person.sharedClasses
-    .filter((item) => person.theirClasses.includes(item.key))
-    .map((item) => item.name);
 
   function toggle(key: string) {
     const next = checked.includes(key) ? checked.filter((item) => item !== key) : [...checked, key];
@@ -397,7 +349,7 @@ function ConnectionRow({
             type="button"
             disabled={disabled}
             data-m="tap"
-            onClick={() => onApprove(checked)}
+            onClick={onApprove}
             className="h-9 rounded-full bg-[#14213d] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
           >
             Approve
@@ -413,12 +365,16 @@ function ConnectionRow({
           {secondaryLabel}
         </button>
       </div>
-      <div className="mt-2">
-        <ClassChecks classes={person.sharedClasses} checked={checked} disabled={disabled} onToggle={toggle} />
-        <p className="mt-1 text-[12px] text-[#5b6478]">
-          {theirs.length ? `They checked ${theirs.join(", ")}.` : "They haven't checked a class."}
-        </p>
-      </div>
+      {person.status === "accepted" ? (
+        <div className="mt-2">
+          <ClassChecks classes={person.sharedClasses} checked={checked} disabled={disabled} onToggle={toggle} />
+          {person.sharedClasses.length > 0 ? (
+            <p className="mt-1 text-[12px] text-[#5b6478]">
+              Checking a class adds them to it, even if they hadn&apos;t added that class.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </li>
   );
 }

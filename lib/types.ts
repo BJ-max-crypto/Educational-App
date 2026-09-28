@@ -44,11 +44,11 @@ export type PersonConnection = {
   name: string;
   username: string;
   status: "incoming" | "outgoing" | "accepted";
-  /** Classes you both currently have. */
+  /** This person's own classes. Empty until the connection is accepted. */
   sharedClasses: SharedClass[];
-  /** Class keys this person checked. */
+  /** Class keys both people are sharing. Empty until the connection is accepted. */
   myClasses: string[];
-  /** Class keys the other person checked. */
+  /** Same shared keys, once the connection is accepted. */
   theirClasses: string[];
 };
 

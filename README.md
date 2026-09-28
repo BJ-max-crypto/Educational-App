@@ -34,7 +34,7 @@ To make someone take the quiz again, remove `onboardingComplete` from their publ
 - **Removed events** are kept with `missing_from_feed = true` and hidden.
 - Sync status and the last error are on `feeds` and shown under the Dashboard greeting and on Profile.
 
-Classmates are people you both approved, and only on a class you both checked. The feed has no roster, so a shared class is two courses with the same name.
+Classmates are people you both approved. After that, each person can share any of their classes. Sharing a class adds it for the other person, even if they hadn't created it, and both of you show up on it.
 
 ## Planner "This week" summary
 

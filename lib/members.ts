@@ -3,9 +3,7 @@ import "server-only";
 import { initials } from "@/lib/dates";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Classmate, Course, PersonConnection, SharedClass } from "@/lib/types";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/database";
+import type { Classmate, Course, PersonConnection } from "@/lib/types";
 
 export type MemberDirectory = {
   username: string | null;
@@ -49,38 +47,9 @@ export function courseKey(name: string) {
   return name.trim().toLowerCase();
 }
 
-/** Classes both people have right now, labeled with the first person's course name. */
-export async function coursesInCommon(
-  admin: SupabaseClient<Database>,
-  profileId: string,
-  otherId: string,
-): Promise<SharedClass[]> {
-  const { data, error } = await admin
-    .from("courses")
-    .select("user_id, name, is_unsorted")
-    .in("user_id", [profileId, otherId])
-    .eq("is_unsorted", false);
-  if (error) throw new Error(error.message);
-  const mine = new Map<string, string>();
-  const theirs = new Set<string>();
-  for (const row of data ?? []) {
-    const key = courseKey(row.name);
-    if (!key) continue;
-    if (row.user_id === profileId) {
-      if (!mine.has(key)) mine.set(key, row.name.trim());
-    } else {
-      theirs.add(key);
-    }
-  }
-  return [...mine.entries()]
-    .filter(([key]) => theirs.has(key))
-    .map(([key, name]) => ({ key, name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/** Keeps only class names both people actually have. */
-export function checkedClasses(requested: string[], shared: SharedClass[]) {
-  const allowed = new Set(shared.map((item) => item.key));
+/** Class keys this person can share: only classes they already have. */
+export function shareableKeys(requested: string[], ownKeys: string[]) {
+  const allowed = new Set(ownKeys.map(courseKey));
   return [...new Set(requested.map(courseKey).filter((key) => allowed.has(key)))].slice(0, 40);
 }
 
@@ -90,7 +59,7 @@ function missingTable(message: string) {
 
 /**
  * Connections for the signed-in profile, plus classmates per course.
- * A classmate is an accepted connection on a class both people checked.
+ * A classmate is an accepted connection on a class both people are sharing.
  * Reads other people only through the service role, and only their name, username, and course names.
  */
 export async function loadMembers(profileId: string, courses: Course[]): Promise<MemberDirectory> {
@@ -153,20 +122,24 @@ export async function loadMembers(profileId: string, courses: Course[]): Promise
     const otherId = row.requester_id === profileId ? row.addressee_id : row.requester_id;
     const person = people.get(otherId);
     if (!person?.username) continue;
-    const theirs = namesByPerson.get(otherId) ?? new Map<string, string>();
     const iAsked = row.requester_id === profileId;
+    const accepted = row.status === "accepted";
+    const mineKeys = iAsked ? row.requester_classes : row.addressee_classes;
+    const theirKeys = iAsked ? row.addressee_classes : row.requester_classes;
+    const sharedKeys = accepted ? mineKeys.filter((key) => theirKeys.includes(key)) : [];
     connections.push({
       id: row.id,
       profileId: otherId,
       name: person.name?.trim() || person.username,
       username: person.username,
-      status: row.status === "accepted" ? "accepted" : iAsked ? "outgoing" : "incoming",
-      sharedClasses: [...mine.entries()]
-        .filter(([key]) => theirs.has(key))
-        .map(([key, name]) => ({ key, name }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-      myClasses: iAsked ? row.requester_classes : row.addressee_classes,
-      theirClasses: iAsked ? row.addressee_classes : row.requester_classes,
+      status: accepted ? "accepted" : iAsked ? "outgoing" : "incoming",
+      sharedClasses: accepted
+        ? [...mine.entries()]
+            .map(([key, name]) => ({ key, name }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        : [],
+      myClasses: sharedKeys,
+      theirClasses: sharedKeys,
     });
   }
   connections.sort((a, b) => a.name.localeCompare(b.name));
