@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CourseSelect } from "@/components/course-select";
+import { SchoolCourseMatches } from "@/components/school-course-matches";
 import { GlassCard } from "@/components/glass-card";
 import { cn } from "@/lib/cn";
 import { useCoursework } from "@/lib/coursework";
@@ -207,7 +208,7 @@ function ClassBatches() {
     }
     setSaving(id);
     setError(null);
-    const created = await createCourse(name);
+    const created = await createCourse({ name });
     if ("error" in created) {
       setSaving(null);
       setError(created.error);
@@ -236,22 +237,48 @@ function ClassBatches() {
               <li className="text-[13px] text-[#5b6478]">and {batch.titles.length - 4} more</li>
             ) : null}
           </ul>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <input
-              value={names[batch.id] ?? ""}
-              onChange={(event) => setNames((current) => ({ ...current, [batch.id]: event.target.value }))}
-              placeholder="Name this class"
-              className="h-11 min-w-[12rem] flex-1 rounded-full border border-white/90 bg-white/85 px-4 text-[15px] text-[#14213d] outline-none focus:border-[#4f7cff] focus:ring-4 focus:ring-[#4f7cff]/15"
-            />
-            <button
-              type="button"
+          <div className="mt-3 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={names[batch.id] ?? ""}
+                onChange={(event) => setNames((current) => ({ ...current, [batch.id]: event.target.value }))}
+                placeholder="Name this class"
+                className="h-11 min-w-[12rem] flex-1 rounded-full border border-white/90 bg-white/85 px-4 text-[15px] text-[#14213d] outline-none focus:border-[#4f7cff] focus:ring-4 focus:ring-[#4f7cff]/15"
+              />
+              <button
+                type="button"
+                disabled={saving === batch.id}
+                data-m="tap"
+                onClick={() => void nameBatch(batch.id, batch.itemIds)}
+                className="h-11 rounded-full bg-[#14213d] px-4 text-[14px] font-semibold text-white disabled:opacity-60"
+              >
+                {saving === batch.id ? "Saving…" : "Create class"}
+              </button>
+            </div>
+            <SchoolCourseMatches
+              name={names[batch.id] ?? ""}
               disabled={saving === batch.id}
-              data-m="tap"
-              onClick={() => void nameBatch(batch.id, batch.itemIds)}
-              className="h-11 rounded-full bg-[#14213d] px-4 text-[14px] font-semibold text-white disabled:opacity-60"
-            >
-              {saving === batch.id ? "Saving…" : "Create class"}
-            </button>
+              onUse={(course) => {
+                setNames((current) => ({ ...current, [batch.id]: course.name }));
+                setSaving(batch.id);
+                setError(null);
+                void createCourse({
+                  name: course.name,
+                  teacher: course.teacher,
+                  period: course.period ?? undefined,
+                  schoolCourseId: course.id,
+                }).then(async (created) => {
+                  if ("error" in created) {
+                    setSaving(null);
+                    setError(created.error);
+                    return;
+                  }
+                  const ok = await assignCourse(batch.itemIds, created.id);
+                  setSaving(null);
+                  if (!ok) setError("Couldn't tag that class.");
+                });
+              }}
+            />
           </div>
         </div>
       ))}

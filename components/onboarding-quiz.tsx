@@ -7,7 +7,6 @@ import { GlassCard } from "@/components/glass-card";
 import { cn } from "@/lib/cn";
 import {
   GRADES,
-  validateAge,
   validateClassName,
   validateGrade,
   validateIcalUrl,
@@ -20,7 +19,6 @@ import {
 type Answers = {
   name: string;
   grade: string;
-  age: string;
   school: string;
   location: string;
   icalUrl: string;
@@ -30,7 +28,6 @@ type StepId = keyof Answers | "classes";
 const steps: { id: StepId; question: string; hint?: string }[] = [
   { id: "name", question: "What's your name?" },
   { id: "grade", question: "What grade are you in?" },
-  { id: "age", question: "How old are you?", hint: "You need to be 13 or older to use Pane." },
   { id: "school", question: "What school do you go to?" },
   {
     id: "location",
@@ -40,7 +37,7 @@ const steps: { id: StepId; question: string; hint?: string }[] = [
   {
     id: "classes",
     question: "Add your classes",
-    hint: "Type each class the way it appears at your school. People there who created the same class share that class's coursework.",
+    hint: "Type each class the way you want it named. The exact same name, teacher, and period can share a label later. A different spelling stays separate until you choose it.",
   },
   {
     id: "icalUrl",
@@ -52,7 +49,6 @@ const steps: { id: StepId; question: string; hint?: string }[] = [
 const validators: Record<keyof Answers, (value: string) => Validation<unknown>> = {
   name: validateName,
   grade: validateGrade,
-  age: validateAge,
   school: validateRequiredSchool,
   location: (value) => validateLocation(value, true),
   icalUrl: validateIcalUrl,
@@ -67,7 +63,6 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
   const [answers, setAnswers] = useState<Answers>({
     name: defaultName,
     grade: "",
-    age: "",
     school: "",
     location: "",
     icalUrl: "",
@@ -232,7 +227,6 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? "onboarding-error" : undefined}
               {...(step.id === "name" && { autoComplete: "name", placeholder: "Alex Morgan" })}
-              {...(step.id === "age" && { inputMode: "numeric" as const, placeholder: "16" })}
               {...(step.id === "school" && { autoComplete: "organization", placeholder: "Lincoln High School" })}
               {...(step.id === "location" && { autoComplete: "address-level2", placeholder: "Portland, Oregon" })}
               {...(step.id === "icalUrl" && {

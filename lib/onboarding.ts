@@ -1,7 +1,5 @@
 export const GRADES = ["6", "7", "8", "9", "10", "11", "12"] as const;
 
-export const MIN_AGE = 13;
-
 export type OnboardingMetadata = {
   onboardingComplete?: boolean;
   name?: string;
@@ -48,14 +46,6 @@ export function validateClassName(value: string): Validation<string> {
 export function validateGrade(value: string): Validation<string> {
   if (!(GRADES as readonly string[]).includes(value)) return { error: "Pick your grade." };
   return { value };
-}
-
-export function validateAge(value: string): Validation<number> {
-  if (!/^\d{1,3}$/.test(value.trim())) return { error: "Enter your age as a number." };
-  const age = Number(value);
-  if (age < MIN_AGE) return { error: `You need to be ${MIN_AGE} or older to use Pane.` };
-  if (age > 120) return { error: "Enter your real age." };
-  return { value: age };
 }
 
 /**

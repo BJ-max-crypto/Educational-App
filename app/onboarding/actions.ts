@@ -1,9 +1,9 @@
 "use server";
 
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { clerkClient, currentUser } from "@clerk/nextjs/server";
+import { enforceAccountAge } from "@/lib/age-gate";
 import { encryptSecret } from "@/lib/crypto";
 import {
-  validateAge,
   validateClassName,
   validateGrade,
   validateIcalUrl,
@@ -12,7 +12,8 @@ import {
   validateRequiredSchool,
 } from "@/lib/onboarding";
 import { courseKey } from "@/lib/members";
-import { isSchoolMigrationError, joinNamedClass, SCHOOL_MIGRATION } from "@/lib/school-feed";
+import { addExplicitCourse } from "@/lib/school-courses";
+import { isSchoolMigrationError, SCHOOL_MIGRATION } from "@/lib/school-feed";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverConfigProblems } from "@/lib/supabase/env";
 import { syncFeed } from "@/lib/sync";
@@ -23,7 +24,6 @@ export type OnboardingResult = { ok: true } | { ok: false; error: string };
 type OnboardingInput = {
   name: string;
   grade: string;
-  age: string;
   school: string;
   location: string;
   classes: string[];
@@ -45,15 +45,15 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Onboar
 }
 
 async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult> {
-  const { userId } = await auth();
-  if (!userId) return { ok: false, error: "Your session ended. Sign in again." };
+  const user = await currentUser();
+  if (!user) return { ok: false, error: "Your session ended. Sign in again." };
+  await enforceAccountAge(user);
+  const userId = user.id;
 
   const name = validateName(input.name);
   if ("error" in name) return { ok: false, error: name.error };
   const grade = validateGrade(input.grade);
   if ("error" in grade) return { ok: false, error: grade.error };
-  const age = validateAge(input.age);
-  if ("error" in age) return { ok: false, error: age.error };
   const school = validateRequiredSchool(input.school);
   if ("error" in school) return { ok: false, error: school.error };
   const location = validateLocation(input.location, true);
@@ -165,19 +165,25 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
   }
 
   const clerk = await clerkClient();
+  const account = await clerk.users.getUser(userId);
   await clerk.users.updateUserMetadata(userId, {
-    publicMetadata: { onboardingComplete: true, name: name.value, grade: grade.value },
+    publicMetadata: {
+      ...account.publicMetadata,
+      onboardingComplete: true,
+      name: name.value,
+      grade: grade.value,
+    },
     ...(timeZone ? { privateMetadata: { timeZone } } : {}),
   });
 
   // A failed first import is shown on the dashboard with a retry, so it does not block onboarding.
   await syncFeed(profileId, { timeZone }).catch((error) => console.error("first sync failed", error));
   for (const className of classNames) {
-    const joined = await joinNamedClass(profileId, className).catch((error) => {
+    const added = await addExplicitCourse(profileId, { name: className }).catch((error) => {
       console.error("onboarding class failed", error);
       return { ok: false as const, error: "Couldn't add that class." };
     });
-    if (!joined.ok && isSchoolMigrationError(joined.error)) return { ok: false, error: joined.error };
+    if (!added.ok) return { ok: false, error: added.error };
   }
 
   return { ok: true };

@@ -43,6 +43,7 @@ export type Database = {
           teacher: string | null;
           color: string;
           is_unsorted: boolean;
+          school_course_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -52,12 +53,14 @@ export type Database = {
           teacher?: string | null;
           color: string;
           is_unsorted?: boolean;
+          school_course_id?: string | null;
         };
         Update: {
           name?: string;
           teacher?: string | null;
           color?: string;
           is_unsorted?: boolean;
+          school_course_id?: string | null;
         };
         Relationships: [];
       };
@@ -215,6 +218,38 @@ export type Database = {
           addressee_classes?: string[];
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      school_courses: {
+        Row: {
+          id: string;
+          school_name: string;
+          name: string;
+          teacher: string;
+          period: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          school_name: string;
+          name: string;
+          teacher?: string;
+          period?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          school_name?: string;
+          name?: string;
+          teacher?: string;
+          period?: string | null;
+        };
+        Relationships: [];
+      };
+      user_courses: {
+        Row: { user_id: string; school_course_id: string; created_at: string };
+        Insert: { user_id: string; school_course_id: string };
+        Update: { user_id?: string; school_course_id?: string };
         Relationships: [];
       };
       school_classes: {

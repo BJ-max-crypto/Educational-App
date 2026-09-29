@@ -14,11 +14,22 @@ Coursework dashboard for Dashboard, Planner, Profile, and course portals. Clerk 
 8. Set `ANTHROPIC_API_KEY` for the Planner summary. `ANTHROPIC_MODEL` is optional (default `claude-sonnet-5`).
 9. Deploy. Signed-out visits to the app are sent to the sign-in URL.
 
+## Sign-up age check
+
+`/sign-up` asks for email or Google, a date of birth, and agreement to the Terms of Service and Privacy Policy. The date is checked and not stored. Pane keeps only `age13Plus` and `termsAccepted` on the Clerk user.
+
+- Email: `createEmailAccount` in `app/(auth)/signup-actions.ts` calls `signupAllowed` before `clerk.users.createUser`. Under 13, or a missing checkbox, returns immediately. No Clerk user and no Supabase row are created.
+- Google: `allowOAuthSignup` in the same file checks the date, then sets a 15-minute httpOnly cookie. `enforceAccountAge` in `lib/age-gate.ts` runs on `/onboarding` and in the app layout before any Supabase write. A new Clerk user with no Pane profile and no signed cookie is deleted and sent back to `/sign-up`. Clerk creates the Google user on Google's return, and that function deletes it in the same request when the check is missing.
+
+Existing accounts that already finished onboarding, or that already have a profile, are left as they are.
+
 ## Onboarding
 
-After sign-in, users go to `/onboarding` until they finish a four-question quiz: name, grade (6–12), age, and Schoology iCal link. Users under 13 cannot continue. Age is checked and not stored.
+After sign-up, users go to `/onboarding` until they finish the quiz: name, grade (6–12), school, school location, classes, and Schoology iCal link. Age is no longer a quiz step.
 
-On submit, the server saves `name`, `grade`, and `onboarding_completed_at` on the user's `profiles` row. It saves the iCal link AES-256-GCM encrypted in `feeds.ical_url_encrypted`, with `status = 'pending'`. It then sets `onboardingComplete` in the user's Clerk public metadata, which is what unlocks the app. The link must be on `schoology.com` or a subdomain, and `webcal://` links are accepted. The first sync runs before the quiz closes. Both migrations below must be run first, or submitting shows a "database" error.
+On submit, the server saves `name`, `grade`, `school`, and `onboarding_completed_at` on the user's `profiles` row. It saves the iCal link AES-256-GCM encrypted in `feeds.ical_url_encrypted`, with `status = 'pending'`. It then sets `onboardingComplete` in the user's Clerk public metadata, keeping `age13Plus`, which is what unlocks the app. The link must be on `schoology.com` or a subdomain, and `webcal://` links are accepted. The first sync runs before the quiz closes. The migrations below must be run first, or submitting shows a "database" error.
+
+Class names typed here become that student's own courses. An exact school label (same school, name, teacher, and period) is reused. A different spelling is a new label. Nothing is combined from similarity alone.
 
 To make someone take the quiz again, remove `onboardingComplete` from their public metadata in Clerk → Users.
 
@@ -68,7 +79,9 @@ Then run `supabase/migrations/0002_profiles_without_supabase_auth.sql`. The exis
 
 Then run `supabase/migrations/0003_weekly_summary_and_calendar.sql` for the Planner summary cache and Google Calendar busy blocks.
 
-Then run `supabase/migrations/0004_assignment_course_overrides.sql` so course tags survive a sync, `supabase/migrations/0005_members.sql` for usernames and connection requests, `supabase/migrations/0006_connection_classes.sql` so each person can choose the classes they share, and `supabase/migrations/0007_school_and_shared_feed.sql` for school location, the shared class feed, and schedule photos.
+Then run `supabase/migrations/0004_assignment_course_overrides.sql` so course tags survive a sync, `supabase/migrations/0005_members.sql` for usernames and connection requests, `supabase/migrations/0006_connection_classes.sql` so each person can choose the classes they share, `supabase/migrations/0007_school_and_shared_feed.sql` for school location, the shared class feed, and schedule photos, and `supabase/migrations/0008_school_courses.sql` for shared class labels.
+
+`school_courses` is a label shared by students at the same school (`name`, `teacher`, optional `period`). `user_courses` records which labels a student chose. Tagging an Unsorted assignment searches that school's labels and shows name and teacher. A student has to click a suggestion to use it. Creating a course adds a new row unless the school, name, teacher, and period already match exactly. The label does not list other students and does not make them visible. Visibility stays on the mutual-approval Members connection.
 
 Then connect Clerk as a third-party auth provider (the JWT-template integration is deprecated):
 

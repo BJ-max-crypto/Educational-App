@@ -82,7 +82,9 @@ type CourseworkValue = {
   unsortedCourseId: string | null;
   unsortedAssignments: Assignment[];
   assignCourse: (assignmentIds: string[], courseId: string | null) => Promise<boolean>;
-  createCourse: (name: string) => Promise<{ id: string } | { error: string }>;
+  createCourse: (
+    input: string | { name: string; teacher?: string; period?: string; schoolCourseId?: string },
+  ) => Promise<{ id: string; notice: string | null } | { error: string }>;
   /** Unsorted items that look like the same class as a course's tagged items. */
   tagSuggestions: TagSuggestions | null;
   findSimilar: (courseId: string) => Promise<void>;
@@ -236,18 +238,24 @@ export function CourseworkProvider({
     [assignCourse, dismissSuggestions, tagSuggestions],
   );
 
-  const createCourse = useCallback(async (name: string) => {
-    const result = await createCourseAction(name).catch(() => ({
+  const createCourse = useCallback(async (input: string | { name: string; teacher?: string; period?: string; schoolCourseId?: string }) => {
+    const result = await createCourseAction(input).catch(() => ({
       ok: false as const,
       error: "Couldn't create that course. Try again.",
     }));
     if (!result.ok) return { error: result.error };
     const { course } = result;
     setNewCourses((all) => [
-      ...all,
-      { id: course.id, name: course.name, color: course.color, teacher: "", initials: initials(course.name) },
+      ...all.filter((item) => item.id !== course.id),
+      {
+        id: course.id,
+        name: course.name,
+        color: course.color,
+        teacher: course.teacher,
+        initials: initials(course.name),
+      },
     ]);
-    return { id: course.id };
+    return { id: course.id, notice: result.notice };
   }, []);
 
   const courseById = useMemo(

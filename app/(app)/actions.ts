@@ -3,7 +3,8 @@
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { COURSE_COLORS } from "@/lib/course-colors";
-import { joinNamedClass, publishCourse, SCHOOL_MIGRATION } from "@/lib/school-feed";
+import { addExplicitCourse, findSchoolCourseSuggestions } from "@/lib/school-courses";
+import { publishCourse, SCHOOL_MIGRATION } from "@/lib/school-feed";
 import { getBusyBlocks } from "@/lib/google-calendar";
 import { courseKey } from "@/lib/members";
 import { validateGrade, validateLocation, validateName, validateSchool } from "@/lib/onboarding";
@@ -164,56 +165,42 @@ export async function rememberTimeZone(timeZone: string): Promise<{ changed: boo
 }
 
 export type CreateCourseResult =
-  | { ok: true; course: { id: string; name: string; color: string } }
+  | { ok: true; course: { id: string; name: string; color: string; teacher: string }; notice: string | null }
   | { ok: false; error: string };
 
-export async function createCourse(rawName: string): Promise<CreateCourseResult> {
+export type CourseDraft = {
+  name: string;
+  teacher?: string;
+  period?: string;
+  /** Present only when the student clicked a suggestion. */
+  schoolCourseId?: string;
+};
+
+/** Suggestions only. Selecting one happens in `createCourse` with `schoolCourseId`. */
+export async function searchSchoolCourses(name: string, teacher = ""): Promise<{
+  suggestions: { id: string; name: string; teacher: string; period: string | null }[];
+  notice: string | null;
+}> {
+  const { userId } = await auth();
+  if (!userId) return { suggestions: [], notice: null };
+  const db = await getUserDb(userId);
+  if (!db) return { suggestions: [], notice: null };
+  try {
+    return await findSchoolCourseSuggestions(db.profileId, name, teacher);
+  } catch (error) {
+    console.error("searchSchoolCourses failed", error instanceof Error ? error.message : error);
+    return { suggestions: [], notice: null };
+  }
+}
+
+export async function createCourse(raw: string | CourseDraft): Promise<CreateCourseResult> {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "Your session ended. Sign in again." };
-  const name = rawName.trim().replace(/\s+/g, " ");
-  if (!name) return { ok: false, error: "Enter a course name." };
-  if (name.length > 60) return { ok: false, error: "Keep the course name under 60 characters." };
-  if (name.toLowerCase() === "unsorted") return { ok: false, error: "Pick a different name." };
-
-  try {
-    const db = await getUserDb(userId);
-    if (!db) return { ok: false, error: "Finish onboarding first." };
-    const { data: existing } = await db.supabase
-      .from("courses")
-      .select("id, name, color")
-      .eq("user_id", db.profileId);
-    const same = existing?.find((course) => course.name.toLowerCase() === name.toLowerCase());
-    if (same) {
-      await joinNamedClass(db.profileId, same.name, same.color).catch((error) => {
-        console.error("join class feed failed", error);
-      });
-      return { ok: true, course: same };
-    }
-
-    const named = (existing ?? []).filter((course) => course.name !== "Unsorted").length;
-    const { data, error } = await db.supabase
-      .from("courses")
-      .insert({
-        user_id: db.profileId,
-        name,
-        color: COURSE_COLORS[named % COURSE_COLORS.length],
-        is_unsorted: false,
-      })
-      .select("id, name, color")
-      .single();
-    if (error || !data) {
-      if (error) console.error("createCourse failed", error.message);
-      return { ok: false, error: "Couldn't create that course. Try again." };
-    }
-    await joinNamedClass(db.profileId, data.name, data.color).catch((error) => {
-      console.error("join class feed failed", error);
-    });
-    revalidatePath("/", "layout");
-    return { ok: true, course: data };
-  } catch (error) {
-    console.error("createCourse failed", error);
-    return { ok: false, error: "Couldn't create that course. Try again." };
-  }
+  const db = await getUserDb(userId);
+  if (!db) return { ok: false, error: "Finish onboarding first." };
+  const result = await addExplicitCourse(db.profileId, typeof raw === "string" ? { name: raw } : raw);
+  if (result.ok) revalidatePath("/", "layout");
+  return result;
 }
 
 /**
