@@ -18,10 +18,6 @@ export default function PrivacyPage() {
               Email is used to sign in and is not shown to other students.
             </p>
             <p>
-              Date of birth is checked when you create an account and is not saved. Pane keeps only that you confirmed
-              you are 13 or older, and that you agreed to these terms.
-            </p>
-            <p>
               A schedule photo is used to write your weekly summary and is stored for your account only. Schoology and
               Google calendar data are used to show your own deadlines and busy times.
             </p>

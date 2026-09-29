@@ -14,20 +14,13 @@ Coursework dashboard for Dashboard, Planner, Profile, and course portals. Clerk 
 8. Set `ANTHROPIC_API_KEY` for the Planner summary. `ANTHROPIC_MODEL` is optional (default `claude-sonnet-5`).
 9. Deploy. Signed-out visits to the app are sent to the sign-in URL.
 
-## Sign-up age check
-
-`/sign-up` asks for email or Google, a date of birth, and agreement to the Terms of Service and Privacy Policy. The date is checked and not stored. Pane keeps only `age13Plus` and `termsAccepted` on the Clerk user.
-
-- Email: `createEmailAccount` in `app/(auth)/signup-actions.ts` calls `signupAllowed` before `clerk.users.createUser`. Under 13, or a missing checkbox, returns immediately. No Clerk user and no Supabase row are created.
-- Google: `allowOAuthSignup` in the same file checks the date, then sets a 15-minute httpOnly cookie. `enforceAccountAge` in `lib/age-gate.ts` runs on `/onboarding` and in the app layout before any Supabase write. A new Clerk user with no Pane profile and no signed cookie is deleted and sent back to `/sign-up`. Clerk creates the Google user on Google's return, and that function deletes it in the same request when the check is missing.
-
-Existing accounts that already finished onboarding, or that already have a profile, are left as they are.
-
 ## Onboarding
 
-After sign-up, users go to `/onboarding` until they finish the quiz: name, grade (6–12), school, school location, classes, and Schoology iCal link. Age is no longer a quiz step.
+Clerk creates the account. `/sign-up` sends people to Clerk's hosted sign-up when `NEXT_PUBLIC_CLERK_SIGN_UP_URL` is a full URL, the same way `/sign-in` does. Otherwise it renders Clerk's `<SignUp />`.
 
-On submit, the server saves `name`, `grade`, `school`, and `onboarding_completed_at` on the user's `profiles` row. It saves the iCal link AES-256-GCM encrypted in `feeds.ical_url_encrypted`, with `status = 'pending'`. It then sets `onboardingComplete` in the user's Clerk public metadata, keeping `age13Plus`, which is what unlocks the app. The link must be on `schoology.com` or a subdomain, and `webcal://` links are accepted. The first sync runs before the quiz closes. The migrations below must be run first, or submitting shows a "database" error.
+After sign-up, users go to `/onboarding` until they finish the quiz: name, grade (6–12), school, school location, classes, and Schoology iCal link.
+
+On submit, the server saves `name`, `grade`, `school`, and `onboarding_completed_at` on the user's `profiles` row. It saves the iCal link AES-256-GCM encrypted in `feeds.ical_url_encrypted`, with `status = 'pending'`. It then sets `onboardingComplete` in the user's Clerk public metadata, which is what unlocks the app. The link must be on `schoology.com` or a subdomain, and `webcal://` links are accepted. The first sync runs before the quiz closes. The migrations below must be run first, or submitting shows a "database" error.
 
 Class names typed here become that student's own courses. An exact school label (same school, name, teacher, and period) is reused. A different spelling is a new label. Nothing is combined from similarity alone.
 

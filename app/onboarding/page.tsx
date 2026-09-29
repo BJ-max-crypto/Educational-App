@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { Background } from "@/components/background";
 import { GlassCard } from "@/components/glass-card";
 import { OnboardingQuiz } from "@/components/onboarding-quiz";
-import { enforceAccountAge, isMissingClerkUser } from "@/lib/age-gate";
 import type { OnboardingMetadata } from "@/lib/onboarding";
 import { serverConfigProblems } from "@/lib/supabase/env";
 
@@ -11,14 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
   await auth.protect();
-  let user;
-  try {
-    user = await currentUser();
-  } catch (error) {
-    if (isMissingClerkUser(error)) redirect("/sign-up?rejected=age");
-    throw error;
-  }
-  await enforceAccountAge(user);
+  const user = await currentUser();
   const meta = (user?.publicMetadata ?? {}) as OnboardingMetadata;
   if (meta.onboardingComplete) redirect("/dashboard");
 

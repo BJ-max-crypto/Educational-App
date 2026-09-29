@@ -2,7 +2,6 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { AppShell } from "@/components/app-shell";
-import { enforceAccountAge, isMissingClerkUser } from "@/lib/age-gate";
 import { loadCoursework } from "@/lib/coursework-data";
 import { loadMembers } from "@/lib/members";
 import type { OnboardingMetadata } from "@/lib/onboarding";
@@ -14,14 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await auth.protect();
-  let user;
-  try {
-    user = await currentUser();
-  } catch (error) {
-    if (isMissingClerkUser(error)) redirect("/sign-up?rejected=age");
-    throw error;
-  }
-  await enforceAccountAge(user);
+  const user = await currentUser();
   const meta = (user?.publicMetadata ?? {}) as OnboardingMetadata;
   if (!meta.onboardingComplete) redirect("/onboarding");
 

@@ -1,7 +1,6 @@
 "use server";
 
 import { clerkClient, currentUser } from "@clerk/nextjs/server";
-import { enforceAccountAge } from "@/lib/age-gate";
 import { encryptSecret } from "@/lib/crypto";
 import {
   validateClassName,
@@ -47,7 +46,6 @@ export async function completeOnboarding(input: OnboardingInput): Promise<Onboar
 async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult> {
   const user = await currentUser();
   if (!user) return { ok: false, error: "Your session ended. Sign in again." };
-  await enforceAccountAge(user);
   const userId = user.id;
 
   const name = validateName(input.name);

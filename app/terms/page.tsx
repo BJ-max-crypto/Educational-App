@@ -22,7 +22,7 @@ export default function TermsPage() {
               Connecting with another student happens only when both of you approve. Sharing a class label does not
               show your name to other students.
             </p>
-            <p>You can stop using Pane and sign out at any time. Accounts that don&apos;t meet the age requirement are not created.</p>
+            <p>You can stop using Pane and sign out at any time.</p>
           </div>
         </GlassCard>
       </div>
