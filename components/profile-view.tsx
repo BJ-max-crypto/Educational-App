@@ -1,11 +1,11 @@
 "use client";
 
 import { useClerk } from "@clerk/nextjs";
+import Link from "next/link";
 import { useState } from "react";
 import { EditProfileForm } from "@/components/edit-profile-form";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { GlassCard } from "@/components/glass-card";
-import { MembersSection } from "@/components/members-section";
 import { GoogleCalendarConnect } from "@/components/google-calendar-connect";
 import { SyncButton, useSyncLabel } from "@/components/sync-status";
 import { initials } from "@/lib/dates";
@@ -28,12 +28,13 @@ export function ProfileView() {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const school = user.school || null;
+  const location = user.schoolLocation || null;
   const grade = user.grade || null;
   const subtitle = [grade ? `Grade ${grade}` : null, school].filter(Boolean).join(" · ");
 
   async function share() {
     const url = window.location.origin;
-    const payload = { title: "Catalyst", text: "Coursework, in one place.", url };
+    const payload = { title: "Pane", text: "Coursework, in one place.", url };
     if (typeof navigator.share === "function") {
       try {
         await navigator.share(payload);
@@ -53,6 +54,7 @@ export function ProfileView() {
 
   return (
     <div data-m="grid1" className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="flex flex-col gap-4">
       <GlassCard className="flex flex-col items-center px-8 py-10 text-center">
         <ProfilePhoto initials={initials(user.name)} />
         <h1 className="mt-5 text-[26px] font-semibold tracking-[-0.03em] text-[#14213d]">
@@ -93,6 +95,14 @@ export function ProfileView() {
           Sign out
         </button>
       </GlassCard>
+      <Link
+        href="/profile/friends"
+        data-m="tap"
+        className="block rounded-[32px] border border-white/90 bg-[#e7eefe]/90 px-8 py-5 text-center text-[16px] font-semibold text-[#14213d] shadow-[0_12px_32px_rgba(51,64,128,0.12)] backdrop-blur-[14px] supports-[backdrop-filter]:bg-[rgba(220,231,255,0.42)]"
+      >
+        Add Friends
+      </Link>
+      </div>
 
       <GlassCard className="space-y-4 p-6 sm:p-8">
         <section className="rounded-[24px] bg-white/55 px-6 py-5">
@@ -101,7 +111,7 @@ export function ProfileView() {
           </h2>
           {editing ? (
             <EditProfileForm
-              initial={{ name: user.name, school: school ?? "", grade: grade ?? "" }}
+              initial={{ name: user.name, school: school ?? "", grade: grade ?? "", location: location ?? "" }}
               onDone={(didSave) => {
                 setEditing(false);
                 setSaved(didSave);
@@ -117,12 +127,11 @@ export function ProfileView() {
               <InfoRow label="Full name" value={user.name} />
               <InfoRow label="Email" value={user.email || "No email on this account"} />
               <InfoRow label="School" value={school ?? "Not set"} />
+              <InfoRow label="Location" value={location ?? "Not set"} />
               <InfoRow label="Grade" value={grade ?? "Not set"} />
             </div>
           )}
         </section>
-
-        <MembersSection />
 
         <section className="rounded-[24px] bg-white/55 px-6 py-5">
           <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">COURSES</h2>

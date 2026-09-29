@@ -55,6 +55,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         initial: name.slice(0, 1).toUpperCase(),
         email,
         school: data.profile?.school ?? null,
+        schoolLocation: data.profile?.school_location ?? null,
         grade: data.profile?.grade ?? meta.grade ?? null,
       }}
       knownTimeZone={timeZone}

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlannerSummaryResponse } from "@/app/api/planner-summary/route";
+import { removeSchedulePhoto, saveSchedulePhoto, schedulePreview } from "@/app/(app)/schedule-actions";
 import { GlassCard } from "@/components/glass-card";
 
 type State =
@@ -85,9 +86,17 @@ export function WeeklySummaryCard() {
         </p>
       ) : null}
 
+      <SchedulePhoto onSaved={refresh} />
+
       {data && !error ? (
         <p className="mt-3 text-[12px] text-[#5b6478]">
-          {data.usedCalendar ? "Based on your assignments and Google Calendar." : "Based on your assignments."}
+          {data.usedSchedule && data.usedCalendar
+            ? "Based on your assignments, your schedule photo, and Google Calendar."
+            : data.usedSchedule
+              ? "Based on your assignments and your schedule photo."
+              : data.usedCalendar
+                ? "Based on your assignments and Google Calendar."
+                : "Based on your assignments."}
           {!data.usedCalendar && data.calendar.status === "connected" ? " Refresh to include your calendar." : null}
           {data.calendar.status === "error" && data.calendar.message ? ` ${data.calendar.message}` : null}
           {!data.usedCalendar && data.calendar.status === "not_connected" ? (
@@ -103,5 +112,104 @@ export function WeeklySummaryCard() {
         </p>
       ) : null}
     </GlassCard>
+  );
+}
+
+function SchedulePhoto({ onSaved }: { onSaved: () => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    let current = true;
+    void schedulePreview().then((result) => {
+      if (current) setPreview(result.preview);
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  async function choose(file: File | undefined) {
+    if (!file) return;
+    setPending(true);
+    setError(null);
+    const body = new FormData();
+    body.set("photo", file);
+    const result = await saveSchedulePhoto(body).catch(() => ({
+      ok: false as const,
+      error: "Couldn't save that picture.",
+    }));
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setPreview(result.preview);
+    onSaved();
+  }
+
+  return (
+    <div className="mt-4 rounded-[22px] border border-white/80 bg-white/45 p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold text-[#14213d]">Schedule photo</p>
+          <p className="text-[13px] text-[#5b6478]">
+            Add a picture of your schedule. The weekly summary reads it when it plans your week.
+          </p>
+        </div>
+        <input
+          ref={input}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="sr-only"
+          onChange={(event) => {
+            void choose(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          disabled={pending}
+          data-m="tap"
+          onClick={() => input.current?.click()}
+          className="rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] disabled:opacity-60"
+        >
+          {pending ? "Saving…" : preview ? "Replace photo" : "Add photo"}
+        </button>
+        {preview ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setPending(true);
+              void removeSchedulePhoto()
+                .then((result) => {
+                  if (!result.ok) {
+                    setError(result.error);
+                    return;
+                  }
+                  setPreview(null);
+                  onSaved();
+                })
+                .finally(() => setPending(false));
+            }}
+            className="text-[13px] font-semibold text-[#5b6478]"
+          >
+            Remove
+          </button>
+        ) : null}
+      </div>
+      {preview ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={preview} alt="Your class schedule" className="mt-3 max-h-48 rounded-[18px] border border-white/90" />
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-2 text-[13px] font-semibold text-[#e5484d]">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }

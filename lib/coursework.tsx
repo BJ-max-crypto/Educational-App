@@ -49,6 +49,7 @@ export type ShellUser = {
   initial: string;
   email: string;
   school: string | null;
+  schoolLocation: string | null;
   grade: string | null;
 };
 

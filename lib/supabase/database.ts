@@ -8,6 +8,7 @@ export type Database = {
           name: string | null;
           school: string | null;
           grade: string | null;
+          school_location: string | null;
           username: string | null;
           onboarding_completed_at: string | null;
           created_at: string;
@@ -19,6 +20,7 @@ export type Database = {
           name?: string | null;
           school?: string | null;
           grade?: string | null;
+          school_location?: string | null;
           username?: string | null;
           onboarding_completed_at?: string | null;
         };
@@ -27,6 +29,7 @@ export type Database = {
           name?: string | null;
           school?: string | null;
           grade?: string | null;
+          school_location?: string | null;
           username?: string | null;
           onboarding_completed_at?: string | null;
         };
@@ -141,6 +144,7 @@ export type Database = {
           for_date: string;
           time_zone: string;
           used_calendar: boolean;
+          used_schedule: boolean;
           model: string;
           generated_at: string;
         };
@@ -150,6 +154,7 @@ export type Database = {
           for_date: string;
           time_zone: string;
           used_calendar?: boolean;
+          used_schedule?: boolean;
           model: string;
           generated_at?: string;
         };
@@ -158,6 +163,7 @@ export type Database = {
           for_date?: string;
           time_zone?: string;
           used_calendar?: boolean;
+          used_schedule?: boolean;
           model?: string;
           generated_at?: string;
         };
@@ -209,6 +215,72 @@ export type Database = {
           addressee_classes?: string[];
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      school_classes: {
+        Row: {
+          id: string;
+          school_key: string;
+          location_key: string;
+          name: string;
+          name_key: string;
+          color: string;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          school_key: string;
+          location_key?: string;
+          name: string;
+          name_key: string;
+          color: string;
+          created_by: string;
+        };
+        Update: {
+          name?: string;
+          color?: string;
+        };
+        Relationships: [];
+      };
+      school_class_items: {
+        Row: {
+          school_class_id: string;
+          external_uid: string;
+          title: string;
+          description: string | null;
+          due_at: string | null;
+          url: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          school_class_id: string;
+          external_uid: string;
+          title: string;
+          description?: string | null;
+          due_at?: string | null;
+          url?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          due_at?: string | null;
+          url?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      school_class_members: {
+        Row: { school_class_id: string; profile_id: string };
+        Insert: { school_class_id: string; profile_id: string };
+        Update: { school_class_id?: string; profile_id?: string };
+        Relationships: [];
+      };
+      schedule_photos: {
+        Row: { user_id: string; content_type: string; data: string; updated_at: string };
+        Insert: { user_id: string; content_type: string; data: string; updated_at?: string };
+        Update: { content_type?: string; data?: string; updated_at?: string };
         Relationships: [];
       };
       calendar_busy: {

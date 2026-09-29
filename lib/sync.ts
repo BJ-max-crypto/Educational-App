@@ -46,7 +46,7 @@ async function fetchCalendar(url: string) {
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { Accept: "text/calendar, */*;q=0.5", "User-Agent": "Catalyst/1.0 (+calendar sync)" },
+      headers: { Accept: "text/calendar, */*;q=0.5", "User-Agent": "Pane/1.0 (+calendar sync)" },
       redirect: "follow",
       cache: "no-store",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -207,7 +207,12 @@ export async function syncFeed(
 
     const seen = new Set(items.map((item) => item.uid));
     const gone = existingAssignments
-      .filter((row) => !seen.has(row.external_uid) && !row.missing_from_feed)
+      .filter(
+        (row) =>
+          !seen.has(row.external_uid) &&
+          !row.missing_from_feed &&
+          !row.external_uid.startsWith("class:"),
+      )
       .map((row) => row.id);
     for (let i = 0; i < gone.length; i += 200) {
       const { error } = await supabase

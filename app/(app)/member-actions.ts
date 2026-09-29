@@ -4,6 +4,9 @@ import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { courseKey, normalizeUsername, shareableKeys, validateUsername } from "@/lib/members";
+import { joinNamedClass, listSchoolmates } from "@/lib/school-feed";
+import type { Schoolmate } from "@/lib/types";
+import { validateClassName } from "@/lib/onboarding";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserDb } from "@/lib/user-db";
 
@@ -55,6 +58,9 @@ export type UsernameMatch = {
   name: string;
   username: string;
   school: string | null;
+  schoolLocation: string | null;
+  grade: string | null;
+  classes: string[];
   status: "none" | "incoming" | "outgoing" | "accepted";
   connectionId: string | null;
 };
@@ -69,17 +75,27 @@ export async function searchUsernames(
   if (!("profileId" in who)) return { ok: false, error: who.error };
 
   const escaped = query.replace(/[\\%_]/g, (char) => `\\${char}`);
-  const { data, error } = await who.admin
+  const full = await who.admin
     .from("profiles")
-    .select("id, name, username, school")
+    .select("id, name, username, school, school_location, grade")
     .like("username", `${escaped}%`)
     .neq("id", who.profileId)
     .limit(8);
-  if (error) {
-    if (unavailable(error.message)) return { ok: false, error: migrationError(error.message) };
-    console.error("searchUsernames failed", error.message);
+  const looked =
+    full.error && /school_location/i.test(full.error.message)
+      ? await who.admin
+          .from("profiles")
+          .select("id, name, username, school, grade")
+          .like("username", `${escaped}%`)
+          .neq("id", who.profileId)
+          .limit(8)
+      : full;
+  if (looked.error) {
+    if (unavailable(looked.error.message)) return { ok: false, error: migrationError(looked.error.message) };
+    console.error("searchUsernames failed", looked.error.message);
     return { ok: false, error: "Couldn't search right now." };
   }
+  const data = looked.data ?? [];
 
   const ids = (data ?? []).map((row) => row.id);
   const status = new Map<string, { status: UsernameMatch["status"]; connectionId: string }>();
@@ -107,19 +123,69 @@ export async function searchUsernames(
     }
   }
 
+  const classes = new Map<string, string[]>();
+  if (ids.length) {
+    const { data: courses, error: coursesError } = await who.admin
+      .from("courses")
+      .select("user_id, name, is_unsorted")
+      .in("user_id", ids)
+      .eq("is_unsorted", false);
+    if (coursesError) return { ok: false, error: "Couldn't search right now." };
+    for (const course of courses ?? []) {
+      const list = classes.get(course.user_id) ?? [];
+      if (!list.some((name) => courseKey(name) === courseKey(course.name))) list.push(course.name);
+      classes.set(course.user_id, list);
+    }
+  }
+
   return {
     ok: true,
-    matches: (data ?? [])
+    matches: data
       .filter((row) => row.username)
       .map((row) => ({
         profileId: row.id,
         name: row.name?.trim() || row.username!,
         username: row.username!,
         school: row.school?.trim() || null,
+        schoolLocation: (() => {
+          if (!("school_location" in row)) return null;
+          const value = row.school_location;
+          return typeof value === "string" ? value.trim() || null : null;
+        })(),
+        grade: row.grade?.trim() || null,
+        classes: (classes.get(row.id) ?? []).slice(0, 8),
         status: status.get(row.id)?.status ?? "none",
         connectionId: status.get(row.id)?.connectionId ?? null,
       })),
   };
+}
+
+export async function schoolSuggestions(): Promise<
+  { ok: true; people: Schoolmate[]; notice: string | null } | { ok: false; error: string }
+> {
+  const who = await caller();
+  if (!("profileId" in who)) return { ok: false, error: who.error };
+  try {
+    const result = await listSchoolmates(who.profileId);
+    return { ok: true, ...result };
+  } catch (error) {
+    console.error("schoolSuggestions failed", error);
+    return { ok: false, error: "Couldn't look up your school right now." };
+  }
+}
+
+export async function joinSchoolClass(rawName: string): Promise<Result> {
+  const parsed = validateClassName(rawName);
+  if ("error" in parsed) return { ok: false, error: parsed.error };
+  const who = await caller();
+  if (!("profileId" in who)) return { ok: false, error: who.error };
+  const joined = await joinNamedClass(who.profileId, parsed.value).catch(() => ({
+    ok: false as const,
+    error: "Couldn't add that class.",
+  }));
+  if (!joined.ok) return joined;
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 export async function requestConnection(profileId: string): Promise<Result> {

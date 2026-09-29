@@ -6,6 +6,7 @@ import { CourseSelect } from "@/components/course-select";
 import { GlassCard } from "@/components/glass-card";
 import { cn } from "@/lib/cn";
 import { useCoursework } from "@/lib/coursework";
+import { batchSimilar } from "@/lib/suggest";
 
 type Filter = "all" | "assignment" | "event";
 
@@ -62,9 +63,11 @@ export function QuickTagView() {
       </h1>
       <p className="mt-1 max-w-[640px] text-[14px] text-[#5b6478]">
         Schoology&apos;s calendar feed doesn&apos;t say which class an item belongs to. Tag each one
-        once. Catalyst remembers it by its Schoology ID and applies it on every sync. After each tag,
-        Catalyst suggests similar items you can tag in one go.
+        once. Pane remembers it by its Schoology ID and applies it on every sync. Similar items are
+        grouped so you can name the class once.
       </p>
+
+      <ClassBatches />
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         {(["all", "assignment", "event"] as const).map((option) => (
@@ -177,5 +180,86 @@ export function QuickTagView() {
         </ul>
       )}
     </GlassCard>
+  );
+}
+
+function ClassBatches() {
+  const { assignments, courseById, createCourse, assignCourse } = useCoursework();
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const batches = useMemo(
+    () =>
+      batchSimilar(
+        assignments
+          .filter((item) => courseById.get(item.courseId)?.isUnsorted)
+          .map((item) => ({ id: item.id, title: item.title, description: null, url: item.url ?? null })),
+      ),
+    [assignments, courseById],
+  );
+  if (batches.length === 0) return null;
+
+  async function nameBatch(id: string, itemIds: string[]) {
+    const name = (names[id] ?? "").trim();
+    if (!name) {
+      setError("Name the class first.");
+      return;
+    }
+    setSaving(id);
+    setError(null);
+    const created = await createCourse(name);
+    if ("error" in created) {
+      setSaving(null);
+      setError(created.error);
+      return;
+    }
+    const ok = await assignCourse(itemIds, created.id);
+    setSaving(null);
+    if (!ok) setError("Couldn't tag that class.");
+  }
+
+  return (
+    <section id="batches" className="mt-5 space-y-3">
+      <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">SIMILAR ITEMS</h2>
+      {batches.map((batch) => (
+        <div key={batch.id} className="rounded-[22px] border border-white/90 bg-white/55 px-4 py-3">
+          <p className="text-[14px] font-semibold text-[#14213d]">
+            {batch.titles.length} similar items
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {batch.titles.slice(0, 4).map((title) => (
+              <li key={title} className="truncate text-[13px] text-[#5b6478]">
+                {title}
+              </li>
+            ))}
+            {batch.titles.length > 4 ? (
+              <li className="text-[13px] text-[#5b6478]">and {batch.titles.length - 4} more</li>
+            ) : null}
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input
+              value={names[batch.id] ?? ""}
+              onChange={(event) => setNames((current) => ({ ...current, [batch.id]: event.target.value }))}
+              placeholder="Name this class"
+              className="h-11 min-w-[12rem] flex-1 rounded-full border border-white/90 bg-white/85 px-4 text-[15px] text-[#14213d] outline-none focus:border-[#4f7cff] focus:ring-4 focus:ring-[#4f7cff]/15"
+            />
+            <button
+              type="button"
+              disabled={saving === batch.id}
+              data-m="tap"
+              onClick={() => void nameBatch(batch.id, batch.itemIds)}
+              className="h-11 rounded-full bg-[#14213d] px-4 text-[14px] font-semibold text-white disabled:opacity-60"
+            >
+              {saving === batch.id ? "Saving…" : "Create class"}
+            </button>
+          </div>
+        </div>
+      ))}
+      {error ? (
+        <p role="alert" className="text-[13px] font-semibold text-[#e5484d]">
+          {error}
+        </p>
+      ) : null}
+    </section>
   );
 }

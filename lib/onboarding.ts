@@ -23,6 +23,28 @@ export function validateSchool(value: string): Validation<string | null> {
   return { value: school || null };
 }
 
+export function validateRequiredSchool(value: string): Validation<string> {
+  const school = validateSchool(value);
+  if ("error" in school) return school;
+  if (!school.value) return { error: "Enter your school." };
+  return { value: school.value };
+}
+
+export function validateLocation(value: string, required = false): Validation<string | null> {
+  const location = value.trim().replace(/\s+/g, " ");
+  if (!location) return required ? { error: "Enter your school's city or town." } : { value: null };
+  if (location.length > 120) return { error: "Keep the location under 120 characters." };
+  return { value: location };
+}
+
+export function validateClassName(value: string): Validation<string> {
+  const name = value.trim().replace(/\s+/g, " ");
+  if (!name) return { error: "Enter a class name." };
+  if (name.length > 60) return { error: "Keep the class name under 60 characters." };
+  if (name.toLowerCase() === "unsorted") return { error: "Pick a different name." };
+  return { value: name };
+}
+
 export function validateGrade(value: string): Validation<string> {
   if (!(GRADES as readonly string[]).includes(value)) return { error: "Pick your grade." };
   return { value };
@@ -31,7 +53,7 @@ export function validateGrade(value: string): Validation<string> {
 export function validateAge(value: string): Validation<number> {
   if (!/^\d{1,3}$/.test(value.trim())) return { error: "Enter your age as a number." };
   const age = Number(value);
-  if (age < MIN_AGE) return { error: `You need to be ${MIN_AGE} or older to use Catalyst.` };
+  if (age < MIN_AGE) return { error: `You need to be ${MIN_AGE} or older to use Pane.` };
   if (age > 120) return { error: "Enter your real age." };
   return { value: age };
 }

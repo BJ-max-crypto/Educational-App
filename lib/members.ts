@@ -88,14 +88,39 @@ export async function loadMembers(profileId: string, courses: Course[]): Promise
       ),
     ),
   ];
-  const people = new Map<string, { name: string | null; username: string | null; grade: string | null }>();
+  const people = new Map<
+    string,
+    {
+      name: string | null;
+      username: string | null;
+      grade: string | null;
+      school: string | null;
+      school_location: string | null;
+    }
+  >();
   if (otherIds.length) {
-    const { data, error } = await admin
+    const full = await admin
       .from("profiles")
-      .select("id, name, username, grade")
+      .select("id, name, username, grade, school, school_location")
       .in("id", otherIds);
-    if (error) throw new Error(error.message);
-    for (const row of data ?? []) people.set(row.id, row);
+    const result =
+      full.error && /school_location/i.test(full.error.message)
+        ? await admin.from("profiles").select("id, name, username, grade, school").in("id", otherIds)
+        : full;
+    if (result.error) throw new Error(result.error.message);
+    for (const row of result.data ?? []) {
+      people.set(row.id, {
+        name: row.name,
+        username: row.username,
+        grade: row.grade,
+        school: row.school,
+        school_location: (() => {
+          if (!("school_location" in row)) return null;
+          const value = row.school_location;
+          return typeof value === "string" ? value : null;
+        })(),
+      });
+    }
   }
 
   const courseIds = [...new Set([profileId, ...otherIds])];
@@ -127,11 +152,16 @@ export async function loadMembers(profileId: string, courses: Course[]): Promise
     const mineKeys = iAsked ? row.requester_classes : row.addressee_classes;
     const theirKeys = iAsked ? row.addressee_classes : row.requester_classes;
     const sharedKeys = accepted ? mineKeys.filter((key) => theirKeys.includes(key)) : [];
+    const theirs = namesByPerson.get(otherId);
     connections.push({
       id: row.id,
       profileId: otherId,
       name: person.name?.trim() || person.username,
       username: person.username,
+      school: person.school?.trim() || null,
+      schoolLocation: person.school_location?.trim() || null,
+      grade: person.grade?.trim() || null,
+      theirCourses: accepted ? [...(theirs?.values() ?? [])].sort((a, b) => a.localeCompare(b)) : [],
       status: accepted ? "accepted" : iAsked ? "outgoing" : "incoming",
       sharedClasses: accepted
         ? [...mine.entries()]

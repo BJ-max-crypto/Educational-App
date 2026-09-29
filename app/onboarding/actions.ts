@@ -4,10 +4,15 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { encryptSecret } from "@/lib/crypto";
 import {
   validateAge,
+  validateClassName,
   validateGrade,
   validateIcalUrl,
+  validateLocation,
   validateName,
+  validateRequiredSchool,
 } from "@/lib/onboarding";
+import { courseKey } from "@/lib/members";
+import { isSchoolMigrationError, joinNamedClass, SCHOOL_MIGRATION } from "@/lib/school-feed";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverConfigProblems } from "@/lib/supabase/env";
 import { syncFeed } from "@/lib/sync";
@@ -15,12 +20,21 @@ import { isValidZone } from "@/lib/timezone";
 
 export type OnboardingResult = { ok: true } | { ok: false; error: string };
 
-type OnboardingInput = { name: string; grade: string; age: string; icalUrl: string; timeZone?: string };
+type OnboardingInput = {
+  name: string;
+  grade: string;
+  age: string;
+  school: string;
+  location: string;
+  classes: string[];
+  icalUrl: string;
+  timeZone?: string;
+};
 
 export async function completeOnboarding(input: OnboardingInput): Promise<OnboardingResult> {
   const problems = serverConfigProblems();
   if (problems.length > 0) {
-    return { ok: false, error: `Catalyst isn't set up yet: ${problems.join(" ")}` };
+    return { ok: false, error: `Pane isn't set up yet: ${problems.join(" ")}` };
   }
   try {
     return await saveOnboarding(input);
@@ -40,6 +54,16 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
   if ("error" in grade) return { ok: false, error: grade.error };
   const age = validateAge(input.age);
   if ("error" in age) return { ok: false, error: age.error };
+  const school = validateRequiredSchool(input.school);
+  if ("error" in school) return { ok: false, error: school.error };
+  const location = validateLocation(input.location, true);
+  if ("error" in location) return { ok: false, error: location.error };
+  const classNames: string[] = [];
+  for (const raw of (input.classes ?? []).slice(0, 12)) {
+    const parsed = validateClassName(raw);
+    if ("error" in parsed) return { ok: false, error: parsed.error };
+    if (!classNames.some((name) => courseKey(name) === courseKey(parsed.value))) classNames.push(parsed.value);
+  }
   const ical = validateIcalUrl(input.icalUrl);
   if ("error" in ical) return { ok: false, error: ical.error };
   const timeZone = isValidZone(input.timeZone) ? input.timeZone : null;
@@ -50,7 +74,7 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
   } catch {
     return {
       ok: false,
-      error: "Catalyst isn't fully set up yet (FEED_ENCRYPTION_KEY is missing). Try again later.",
+      error: "Pane isn't fully set up yet (FEED_ENCRYPTION_KEY is missing). Try again later.",
     };
   }
 
@@ -71,7 +95,7 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
       ok: false,
       error: badKey
         ? "Supabase rejected SUPABASE_SERVICE_ROLE_KEY. Check it in Vercel's environment variables."
-        : "Catalyst's database isn't set up yet (run supabase/migrations/0001_init.sql). Try again later.",
+        : "Pane's database isn't set up yet (run supabase/migrations/0001_init.sql). Try again later.",
     };
   }
 
@@ -79,10 +103,17 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
   if (profileId) {
     const { error } = await supabase
       .from("profiles")
-      .update({ name: name.value, grade: grade.value, onboarding_completed_at: now })
+      .update({
+        name: name.value,
+        grade: grade.value,
+        school: school.value,
+        school_location: location.value,
+        onboarding_completed_at: now,
+      })
       .eq("id", profileId);
     if (error) {
       console.error("onboarding: profile update failed", error);
+      if (isSchoolMigrationError(error.message)) return { ok: false, error: SCHOOL_MIGRATION };
       return { ok: false, error: "We couldn't save your profile. Try again." };
     }
   } else {
@@ -92,15 +123,18 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
       clerk_user_id: userId,
       name: name.value,
       grade: grade.value,
+      school: school.value,
+      school_location: location.value,
       onboarding_completed_at: now,
     });
     if (error) {
       console.error("onboarding: profile insert failed", error);
+      if (isSchoolMigrationError(error.message)) return { ok: false, error: SCHOOL_MIGRATION };
       if (error.code === "23503") {
         return {
           ok: false,
           error:
-            "Catalyst's database needs one more update (run supabase/migrations/0002_profiles_without_supabase_auth.sql). Try again after.",
+            "Pane's database needs one more update (run supabase/migrations/0002_profiles_without_supabase_auth.sql). Try again after.",
         };
       }
       return { ok: false, error: "We couldn't save your profile. Try again." };
@@ -138,6 +172,13 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
 
   // A failed first import is shown on the dashboard with a retry, so it does not block onboarding.
   await syncFeed(profileId, { timeZone }).catch((error) => console.error("first sync failed", error));
+  for (const className of classNames) {
+    const joined = await joinNamedClass(profileId, className).catch((error) => {
+      console.error("onboarding class failed", error);
+      return { ok: false as const, error: "Couldn't add that class." };
+    });
+    if (!joined.ok && isSchoolMigrationError(joined.error)) return { ok: false, error: joined.error };
+  }
 
   return { ok: true };
 }

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateProfile } from "@/app/(app)/actions";
 import { cn } from "@/lib/cn";
-import { GRADES, validateName } from "@/lib/onboarding";
+import { GRADES, validateLocation, validateName } from "@/lib/onboarding";
 
 const inputClass =
   "w-full rounded-[14px] border border-white/90 bg-white/85 px-3.5 py-2.5 text-[15px] text-[#14213d] outline-none transition-shadow duration-200 ease-out focus:border-[#4f7cff] focus:ring-4 focus:ring-[#4f7cff]/15";
@@ -13,7 +13,7 @@ export function EditProfileForm({
   initial,
   onDone,
 }: {
-  initial: { name: string; school: string; grade: string };
+  initial: { name: string; school: string; grade: string; location: string };
   onDone: (saved: boolean) => void;
 }) {
   const router = useRouter();
@@ -33,6 +33,11 @@ export function EditProfileForm({
     const name = validateName(values.name);
     if ("error" in name) {
       setError(name.error);
+      return;
+    }
+    const location = validateLocation(values.location);
+    if ("error" in location) {
+      setError(location.error);
       return;
     }
     startTransition(async () => {
@@ -72,6 +77,17 @@ export function EditProfileForm({
           autoComplete="organization"
           maxLength={120}
           placeholder="Optional"
+        />
+      </label>
+      <label className="block">
+        <span className="text-[13px] font-medium text-[#5b6478]">School location</span>
+        <input
+          className={cn(inputClass, "mt-1")}
+          value={values.location}
+          onChange={set("location")}
+          autoComplete="address-level2"
+          maxLength={120}
+          placeholder="City or town"
         />
       </label>
       <label className="block">

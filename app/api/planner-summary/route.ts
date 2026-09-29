@@ -16,6 +16,7 @@ export type PlannerSummaryResponse = {
   summary: string | null;
   generatedAt: string | null;
   usedCalendar: boolean;
+  usedSchedule: boolean;
   calendar: { status: CalendarState["status"]; message?: string };
   error?: string;
 };
@@ -47,30 +48,57 @@ async function handle(request: NextRequest, refresh: boolean) {
   if (!db) return NextResponse.json({ error: "Finish onboarding first." }, { status: 404 });
 
   const admin = createAdminClient();
-  const cached = await admin
+  const cachedFull = await admin
     .from("weekly_summaries")
-    .select("summary, for_date, time_zone, used_calendar, generated_at")
+    .select("summary, for_date, time_zone, used_calendar, used_schedule, generated_at")
     .eq("user_id", db.profileId)
     .maybeSingle();
+  const cached =
+    cachedFull.error && /used_schedule/i.test(cachedFull.error.message)
+      ? await admin
+          .from("weekly_summaries")
+          .select("summary, for_date, time_zone, used_calendar, generated_at")
+          .eq("user_id", db.profileId)
+          .maybeSingle()
+      : cachedFull;
   if (cached.error) {
     console.error("weekly_summaries read failed", cached.error.message);
     return NextResponse.json<PlannerSummaryResponse>({
       summary: null,
       generatedAt: null,
       usedCalendar: false,
+      usedSchedule: false,
       calendar: { status: "not_connected" },
       error: "The weekly summary needs a database update (supabase/migrations/0003_weekly_summary_and_calendar.sql).",
     });
   }
 
+  const photo = await admin
+    .from("schedule_photos")
+    .select("content_type, data, updated_at")
+    .eq("user_id", db.profileId)
+    .maybeSingle();
+  const schedule =
+    photo.error || !photo.data
+      ? null
+      : { mediaType: photo.data.content_type, data: photo.data.data, updatedAt: photo.data.updated_at };
+  if (photo.error && !/schedule_photos|schema cache/i.test(photo.error.message)) {
+    console.error("schedule photo read failed", photo.error.message);
+  }
+
   const row = cached.data;
-  const fresh = row && row.for_date === today && row.time_zone === timeZone;
-  const coolingDown = row && now - new Date(row.generated_at).getTime() < REFRESH_COOLDOWN_MS;
+  const usedScheduleCached = Boolean(row && "used_schedule" in row && row.used_schedule);
+  const photoChanged =
+    Boolean(schedule) !== usedScheduleCached ||
+    Boolean(schedule && row && new Date(schedule.updatedAt).getTime() > new Date(row.generated_at).getTime());
+  const fresh = row && row.for_date === today && row.time_zone === timeZone && !photoChanged;
+  const coolingDown = row && now - new Date(row.generated_at).getTime() < REFRESH_COOLDOWN_MS && !photoChanged;
   if (row && (fresh && !refresh || refresh && coolingDown)) {
     return NextResponse.json<PlannerSummaryResponse>({
       summary: row.summary,
       generatedAt: row.generated_at,
       usedCalendar: row.used_calendar,
+      usedSchedule: usedScheduleCached,
       calendar: { status: (await hasCalendarScope()) ? "connected" : "not_connected" },
     });
   }
@@ -83,27 +111,31 @@ async function handle(request: NextRequest, refresh: boolean) {
     }),
   ]);
 
-  const input = buildSummaryInput({
-    assignments: data.assignments,
-    courses: data.courses,
-    calendar,
-    timeZone,
-    now,
-  });
+  const input = {
+    ...buildSummaryInput({
+      assignments: data.assignments,
+      courses: data.courses,
+      calendar,
+      timeZone,
+      now,
+    }),
+    usedSchedule: Boolean(schedule),
+  };
 
   let summary: string;
   let model = "none";
-  if (input.itemCount === 0 && input.overdueCount === 0) {
+  if (input.itemCount === 0 && input.overdueCount === 0 && !schedule) {
     summary = "Nothing is due in the next 7 days and nothing is overdue.";
   } else {
     try {
-      ({ summary, model } = await generateSummary(input));
+      ({ summary, model } = await generateSummary(input, schedule));
     } catch (error) {
       console.error("weekly summary generation failed", error);
       return NextResponse.json<PlannerSummaryResponse>({
         summary: row?.summary ?? null,
         generatedAt: row?.generated_at ?? null,
         usedCalendar: row?.used_calendar ?? false,
+        usedSchedule: usedScheduleCached,
         calendar: calendarInfo(calendar),
         error: `Couldn't write this week's summary: ${
           error instanceof SummaryError ? error.message : "something went wrong. Try Refresh."
@@ -119,6 +151,7 @@ async function handle(request: NextRequest, refresh: boolean) {
     for_date: today,
     time_zone: timeZone,
     used_calendar: input.usedCalendar,
+    used_schedule: input.usedSchedule,
     model,
     generated_at: generatedAt,
   });
@@ -128,6 +161,7 @@ async function handle(request: NextRequest, refresh: boolean) {
     summary,
     generatedAt,
     usedCalendar: input.usedCalendar,
+    usedSchedule: input.usedSchedule,
     calendar: calendarInfo(calendar),
   });
 }
@@ -138,7 +172,7 @@ async function safely(request: NextRequest, refresh: boolean) {
   } catch (error) {
     console.error("planner summary failed", error);
     return NextResponse.json(
-      { summary: null, generatedAt: null, usedCalendar: false, calendar: { status: "error" }, error: "Couldn't load this week's summary." },
+      { summary: null, generatedAt: null, usedCalendar: false, usedSchedule: false, calendar: { status: "error" }, error: "Couldn't load this week's summary." },
       { status: 500 },
     );
   }

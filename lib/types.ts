@@ -43,6 +43,11 @@ export type PersonConnection = {
   profileId: string;
   name: string;
   username: string;
+  school: string | null;
+  schoolLocation: string | null;
+  grade: string | null;
+  /** Classes this person created. Empty until the connection is accepted. */
+  theirCourses: string[];
   status: "incoming" | "outgoing" | "accepted";
   /** This person's own classes. Empty until the connection is accepted. */
   sharedClasses: SharedClass[];
@@ -50,6 +55,16 @@ export type PersonConnection = {
   myClasses: string[];
   /** Same shared keys, once the connection is accepted. */
   theirClasses: string[];
+};
+
+export type Schoolmate = {
+  profileId: string;
+  name: string;
+  username: string;
+  school: string | null;
+  schoolLocation: string | null;
+  grade: string | null;
+  classes: string[];
 };
 
 export type FeedSummary = {

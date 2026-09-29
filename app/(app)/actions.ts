@@ -3,9 +3,10 @@
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { COURSE_COLORS } from "@/lib/course-colors";
+import { joinNamedClass, publishCourse, SCHOOL_MIGRATION } from "@/lib/school-feed";
 import { getBusyBlocks } from "@/lib/google-calendar";
 import { courseKey } from "@/lib/members";
-import { validateGrade, validateName, validateSchool } from "@/lib/onboarding";
+import { validateGrade, validateLocation, validateName, validateSchool } from "@/lib/onboarding";
 import { suggestSimilar } from "@/lib/suggest";
 import { syncFeed } from "@/lib/sync";
 import type { AssignmentStatus } from "@/lib/types";
@@ -63,7 +64,7 @@ export async function syncNow(): Promise<ActionResult> {
   return result.ok ? { ok: true } : result;
 }
 
-export type ProfileInput = { name: string; school: string; grade: string };
+export type ProfileInput = { name: string; school: string; grade: string; location: string };
 
 export async function updateProfile(input: ProfileInput): Promise<ActionResult> {
   const { userId } = await auth();
@@ -75,17 +76,25 @@ export async function updateProfile(input: ProfileInput): Promise<ActionResult> 
   if ("error" in school) return { ok: false, error: school.error };
   const grade = validateGrade(input.grade);
   if ("error" in grade) return { ok: false, error: grade.error };
+  const location = validateLocation(input.location ?? "");
+  if ("error" in location) return { ok: false, error: location.error };
 
   try {
     const db = await getUserDb(userId);
     if (!db) return { ok: false, error: "Finish onboarding first." };
     const { data, error } = await db.supabase
       .from("profiles")
-      .update({ name: name.value, school: school.value, grade: grade.value })
+      .update({
+        name: name.value,
+        school: school.value,
+        grade: grade.value,
+        school_location: location.value,
+      })
       .eq("id", db.profileId)
       .select("id");
     if (error || !data?.length) {
       if (error) console.error("updateProfile failed", error.message);
+      if (error && /school_location/i.test(error.message)) return { ok: false, error: SCHOOL_MIGRATION };
       return { ok: false, error: "Couldn't save your profile. Try again." };
     }
     const clerk = await clerkClient();
@@ -164,7 +173,12 @@ export async function createCourse(rawName: string): Promise<CreateCourseResult>
       .select("id, name, color")
       .eq("user_id", db.profileId);
     const same = existing?.find((course) => course.name.toLowerCase() === name.toLowerCase());
-    if (same) return { ok: true, course: same };
+    if (same) {
+      await joinNamedClass(db.profileId, same.name, same.color).catch((error) => {
+        console.error("join class feed failed", error);
+      });
+      return { ok: true, course: same };
+    }
 
     const named = (existing ?? []).filter((course) => course.name !== "Unsorted").length;
     const { data, error } = await db.supabase
@@ -181,6 +195,9 @@ export async function createCourse(rawName: string): Promise<CreateCourseResult>
       if (error) console.error("createCourse failed", error.message);
       return { ok: false, error: "Couldn't create that course. Try again." };
     }
+    await joinNamedClass(db.profileId, data.name, data.color).catch((error) => {
+      console.error("join class feed failed", error);
+    });
     revalidatePath("/", "layout");
     return { ok: true, course: data };
   } catch (error) {
@@ -285,6 +302,7 @@ export async function setAssignmentCourses(
         rows.map((row) => row.id),
       );
     if (updateError) throw new Error(updateError.message);
+    if (courseId) await publishCourse(profileId, courseId);
   } catch (error) {
     console.error("setAssignmentCourses failed", error);
     return { ok: false, error: "Couldn't save that tag. Try again." };

@@ -177,3 +177,68 @@ export function suggestSimilar(examples: SuggestItem[], candidates: SuggestItem[
 
   return results.sort((a, b) => b.score - a.score).slice(0, MAX_RESULTS);
 }
+
+export type ItemBatch = {
+  id: string;
+  itemIds: string[];
+  titles: string[];
+};
+
+function sameClass(a: Prepared, b: Prepared, frequency: Map<string, number>, commonLimit: number) {
+  if (a.item.id === b.item.id) return false;
+  if (a.exact && a.exact === b.exact) return true;
+  if (a.template.includes("#") && a.template === b.template) return true;
+  const shared = [...a.tokens].filter((token) => b.tokens.has(token));
+  const union = new Set([...a.tokens, ...b.tokens]).size;
+  const specific = shared.filter((token) => !GENERIC.has(token));
+  if (specific.length && union && shared.length / union >= 0.6) return true;
+  return [...a.phrases].some((phrase) => b.phrases.has(phrase) && (frequency.get(phrase) ?? 0) <= commonLimit);
+}
+
+/**
+ * Groups unsorted items that look like one class. Nothing is saved until the student names the group.
+ */
+export function batchSimilar(items: SuggestItem[]): ItemBatch[] {
+  const pool = items.slice(0, 200).map(prepare);
+  if (pool.length < 2) return [];
+  const frequency = new Map<string, number>();
+  for (const entry of pool) {
+    for (const phrase of entry.phrases) frequency.set(phrase, (frequency.get(phrase) ?? 0) + 1);
+  }
+  const commonLimit = Math.max(6, Math.ceil(pool.length * 0.05));
+  const parent = pool.map((_, index) => index);
+  const find = (index: number): number => {
+    let cursor = index;
+    while (parent[cursor] !== cursor) cursor = parent[cursor];
+    return cursor;
+  };
+  const unite = (left: number, right: number) => {
+    const a = find(left);
+    const b = find(right);
+    if (a !== b) parent[b] = a;
+  };
+  for (let i = 0; i < pool.length; i++) {
+    for (let j = i + 1; j < pool.length; j++) {
+      if (sameClass(pool[i], pool[j], frequency, commonLimit)) unite(i, j);
+    }
+  }
+  const groups = new Map<number, Prepared[]>();
+  for (let i = 0; i < pool.length; i++) {
+    const root = find(i);
+    const list = groups.get(root) ?? [];
+    list.push(pool[i]);
+    groups.set(root, list);
+  }
+  return [...groups.values()]
+    .filter((group) => group.length >= 2)
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 8)
+    .map((group) => {
+      const chosen = group.slice(0, 25);
+      return {
+        id: chosen.map((entry) => entry.item.id).join(":"),
+        itemIds: chosen.map((entry) => entry.item.id),
+        titles: chosen.map((entry) => entry.item.title),
+      };
+    });
+}

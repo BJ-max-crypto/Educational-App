@@ -5,7 +5,12 @@ import type { Assignment, Course, FeedSummary } from "@/lib/types";
 import type { UserDb } from "@/lib/user-db";
 
 export type StoredCoursework = {
-  profile: { name: string | null; school: string | null; grade: string | null } | null;
+  profile: {
+    name: string | null;
+    school: string | null;
+    grade: string | null;
+    school_location: string | null;
+  } | null;
   courses: Course[];
   assignments: Assignment[];
   feed: (FeedSummary & { updatedAt: string }) | null;
@@ -17,8 +22,16 @@ export async function loadCoursework(db: UserDb | null): Promise<StoredCoursewor
   if (!db) return EMPTY;
   const { supabase, profileId } = db;
 
-  const [profile, courses, assignments, feed] = await Promise.all([
-    supabase.from("profiles").select("name, school, grade").eq("id", profileId).maybeSingle(),
+  const profileQuery = await supabase
+    .from("profiles")
+    .select("name, school, grade, school_location")
+    .eq("id", profileId)
+    .maybeSingle();
+  const profile =
+    profileQuery.error && /school_location/i.test(profileQuery.error.message)
+      ? await supabase.from("profiles").select("name, school, grade").eq("id", profileId).maybeSingle()
+      : profileQuery;
+  const [courses, assignments, feed] = await Promise.all([
     supabase
       .from("courses")
       .select("id, name, teacher, color, is_unsorted")
@@ -65,8 +78,20 @@ export async function loadCoursework(db: UserDb | null): Promise<StoredCoursewor
       isUnsorted: course.is_unsorted,
     }));
 
+  const profileRow = profile.data;
   return {
-    profile: profile.data ?? null,
+    profile: profileRow
+      ? {
+          name: profileRow.name,
+          school: profileRow.school,
+          grade: profileRow.grade,
+          school_location: (() => {
+            if (!("school_location" in profileRow)) return null;
+            const value = profileRow.school_location;
+            return typeof value === "string" ? value : null;
+          })(),
+        }
+      : null,
     courses: mappedCourses,
     assignments: mappedAssignments,
     feed: feed.data

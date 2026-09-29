@@ -8,19 +8,40 @@ import { cn } from "@/lib/cn";
 import {
   GRADES,
   validateAge,
+  validateClassName,
   validateGrade,
   validateIcalUrl,
+  validateLocation,
   validateName,
+  validateRequiredSchool,
   type Validation,
 } from "@/lib/onboarding";
 
-type Answers = { name: string; grade: string; age: string; icalUrl: string };
-type StepId = keyof Answers;
+type Answers = {
+  name: string;
+  grade: string;
+  age: string;
+  school: string;
+  location: string;
+  icalUrl: string;
+};
+type StepId = keyof Answers | "classes";
 
 const steps: { id: StepId; question: string; hint?: string }[] = [
   { id: "name", question: "What's your name?" },
   { id: "grade", question: "What grade are you in?" },
-  { id: "age", question: "How old are you?", hint: "You need to be 13 or older to use Catalyst." },
+  { id: "age", question: "How old are you?", hint: "You need to be 13 or older to use Pane." },
+  { id: "school", question: "What school do you go to?" },
+  {
+    id: "location",
+    question: "Where is your school?",
+    hint: "City or town, so Pane can tell schools with the same name apart.",
+  },
+  {
+    id: "classes",
+    question: "Add your classes",
+    hint: "Type each class the way it appears at your school. People there who created the same class share that class's coursework.",
+  },
   {
     id: "icalUrl",
     question: "Paste your Schoology calendar link",
@@ -28,10 +49,12 @@ const steps: { id: StepId; question: string; hint?: string }[] = [
   },
 ];
 
-const validators: Record<StepId, (value: string) => Validation<unknown>> = {
+const validators: Record<keyof Answers, (value: string) => Validation<unknown>> = {
   name: validateName,
   grade: validateGrade,
   age: validateAge,
+  school: validateRequiredSchool,
+  location: (value) => validateLocation(value, true),
   icalUrl: validateIcalUrl,
 };
 
@@ -45,8 +68,12 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
     name: defaultName,
     grade: "",
     age: "",
+    school: "",
+    location: "",
     icalUrl: "",
   });
+  const [classNames, setClassNames] = useState<string[]>([]);
+  const [classDraft, setClassDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -54,19 +81,42 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
   const last = index === steps.length - 1;
 
   function set(value: string) {
+    if (step.id === "classes") return;
     setAnswers((current) => ({ ...current, [step.id]: value }));
+    setError(null);
+  }
+
+  function addClass() {
+    const parsed = validateClassName(classDraft);
+    if ("error" in parsed) {
+      setError(parsed.error);
+      return;
+    }
+    if (classNames.some((name) => name.toLowerCase() === parsed.value.toLowerCase())) {
+      setError("You already added that class.");
+      return;
+    }
+    if (classNames.length >= 12) {
+      setError("You can add up to 12 classes.");
+      return;
+    }
+    setClassNames((current) => [...current, parsed.value]);
+    setClassDraft("");
     setError(null);
   }
 
   function next(event: React.FormEvent) {
     event.preventDefault();
-    const result = validators[step.id](answers[step.id]);
-    if ("error" in result) {
-      setError(result.error);
-      return;
+    if (step.id !== "classes") {
+      const result = validators[step.id](answers[step.id]);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
     }
     if (!last) {
       setIndex(index + 1);
+      setError(null);
       return;
     }
     startTransition(async () => {
@@ -74,6 +124,7 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
       try {
         saved = await completeOnboarding({
           ...answers,
+          classes: classNames,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
       } catch {
@@ -94,10 +145,7 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
         {steps.map((item, i) => (
           <span
             key={item.id}
-            className={cn(
-              "h-1.5 flex-1 rounded-full",
-              i <= index ? "bg-[#4f7cff]" : "bg-white/80",
-            )}
+            className={cn("h-1.5 flex-1 rounded-full", i <= index ? "bg-[#4f7cff]" : "bg-white/80")}
           />
         ))}
       </div>
@@ -132,6 +180,47 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
                 </button>
               ))}
             </div>
+          ) : step.id === "classes" ? (
+            <div>
+              <div className="flex gap-2">
+                <input
+                  id="classes"
+                  value={classDraft}
+                  onChange={(event) => {
+                    setClassDraft(event.target.value);
+                    setError(null);
+                  }}
+                  placeholder="AP Biology"
+                  className={inputClass}
+                />
+                <button
+                  type="button"
+                  onClick={addClass}
+                  data-m="tap"
+                  className="rounded-full bg-white/95 px-4 text-[14px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)]"
+                >
+                  Add
+                </button>
+              </div>
+              {classNames.length > 0 ? (
+                <ul className="mt-3 flex flex-wrap gap-2">
+                  {classNames.map((name) => (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        onClick={() => setClassNames((current) => current.filter((item) => item !== name))}
+                        className="rounded-full border border-white/90 bg-white/80 px-3 py-1.5 text-[13px] font-semibold text-[#14213d]"
+                      >
+                        {name} <span aria-hidden>×</span>
+                        <span className="sr-only">Remove {name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-[13px] text-[#5b6478]">You can skip this and add classes later.</p>
+              )}
+            </div>
           ) : (
             <input
               key={step.id}
@@ -144,6 +233,8 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
               aria-describedby={error ? "onboarding-error" : undefined}
               {...(step.id === "name" && { autoComplete: "name", placeholder: "Alex Morgan" })}
               {...(step.id === "age" && { inputMode: "numeric" as const, placeholder: "16" })}
+              {...(step.id === "school" && { autoComplete: "organization", placeholder: "Lincoln High School" })}
+              {...(step.id === "location" && { autoComplete: "address-level2", placeholder: "Portland, Oregon" })}
               {...(step.id === "icalUrl" && {
                 type: "url",
                 autoComplete: "off",

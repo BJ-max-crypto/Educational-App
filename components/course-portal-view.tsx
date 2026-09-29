@@ -190,7 +190,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
           ) : (
             <p className="mt-4 text-[14px] text-[#5b6478]">
               Nobody you know is in this class yet.{" "}
-              <Link href="/profile#members" className="font-semibold text-[#14213d] underline-offset-2 hover:underline">
+              <Link href="/profile/friends" className="font-semibold text-[#14213d] underline-offset-2 hover:underline">
                 You can add people
               </Link>
             </p>

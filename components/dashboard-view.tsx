@@ -26,7 +26,7 @@ export function DashboardView() {
         <div className="mt-5 flex max-w-[720px] flex-wrap items-center gap-3 rounded-[22px] border border-white/90 bg-white/60 px-5 py-3.5">
           <p className="text-[14px] text-[#14213d]">
             <span className="font-semibold">{unsortedAssignments.length} items have no course.</span>{" "}
-            Schoology&apos;s feed doesn&apos;t include class names, so tag them once and Catalyst remembers.
+            Schoology&apos;s feed doesn&apos;t include class names, so tag them once and Pane remembers.
           </p>
           <Link
             href="/tag"
