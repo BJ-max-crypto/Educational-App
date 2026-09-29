@@ -68,13 +68,13 @@ export function InviteConfirm({ result }: { result: Lookup }) {
         ) : (
           <>
             <h1 className="text-[26px] font-semibold tracking-[-0.03em] text-[#14213d]">
-              Connect with {publicLabel(result.name, result.username)}?
+              {result.status === "accepted" ? publicLabel(result.name, result.username) : `@${result.username} shared`}
             </h1>
-            <p className="mt-2 text-[15px] text-[#5b6478]">
-              {result.status === "accepted"
-                ? "You're already connected. You can see each other's names in Members."
-                : "Their name stays hidden until you both approve."}
-            </p>
+            {result.status === "accepted" ? (
+              <p className="mt-2 text-[15px] text-[#5b6478]">You&apos;re already connected.</p>
+            ) : (
+              <p className="mt-2 text-[15px] text-[#5b6478]">Their name stays hidden until you both approve.</p>
+            )}
             {result.status === "none" && !sent ? (
               <button
                 type="button"
@@ -82,7 +82,7 @@ export function InviteConfirm({ result }: { result: Lookup }) {
                 onClick={() => void connect()}
                 className="mt-6 rounded-full bg-[#14213d] px-6 py-3 text-[15px] font-semibold text-white disabled:opacity-60"
               >
-                {pending ? "Sending…" : "Send request"}
+                {pending ? "Connecting…" : "Connect"}
               </button>
             ) : null}
             {result.status === "incoming" && result.connectionId ? (
@@ -94,9 +94,6 @@ export function InviteConfirm({ result }: { result: Lookup }) {
               >
                 {pending ? "Approving…" : "Approve"}
               </button>
-            ) : null}
-            {sent || result.status === "outgoing" ? (
-              <p className="mt-6 text-[14px] font-semibold text-[#1b7f60]">Request sent. They still need to approve.</p>
             ) : null}
           </>
         )}

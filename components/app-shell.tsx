@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { Background } from "@/components/background";
-import { NotificationsBar } from "@/components/notifications-bar";
+import { NotificationsBadge } from "@/components/notifications-bar";
 import { SaveErrorBanner } from "@/components/sync-status";
 import { TagSuggestionsPanel } from "@/components/tag-suggestions";
 import { TopNav } from "@/components/top-nav";
@@ -56,25 +56,27 @@ export function AppShell({
             <Link href="/dashboard" data-m="hit" aria-label="Pane" className="flex shrink-0 items-center">
               <Image src="/logo.png" alt="" width={34} height={40} priority className="h-10 w-auto" />
             </Link>
-            <Link
-              href="/profile"
-              aria-label="Profile"
-              className="flex size-11 items-center justify-center overflow-hidden rounded-full border border-white/90 bg-white/80 text-[16px] font-semibold text-[#14213d] shadow-[0_8px_20px_rgba(51,64,128,0.12)] md:ml-auto"
-            >
-              {account?.hasImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={account.imageUrl} alt="" className="size-full object-cover" />
-              ) : (
-                initial
-              )}
-            </Link>
+            <div className="relative md:ml-auto">
+              <Link
+                href="/profile"
+                aria-label="Profile"
+                className="flex size-11 items-center justify-center overflow-hidden rounded-full border border-white/90 bg-white/80 text-[16px] font-semibold text-[#14213d] shadow-[0_8px_20px_rgba(51,64,128,0.12)]"
+              >
+                {account?.hasImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={account.imageUrl} alt="" className="size-full object-cover" />
+                ) : (
+                  initial
+                )}
+              </Link>
+              <NotificationsBadge />
+            </div>
           </div>
           <div data-m="nav-wrap" className="md:absolute md:left-1/2 md:-translate-x-1/2">
             <TopNav />
           </div>
         </header>
         <main data-m="main" className="px-4 pb-16 pt-4 md:px-[84px] md:pt-2">
-          <NotificationsBar />
           <SaveErrorBanner />
           {children}
         </main>
