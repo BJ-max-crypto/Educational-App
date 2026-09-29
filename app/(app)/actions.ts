@@ -82,7 +82,7 @@ export async function updateProfile(input: ProfileInput): Promise<ActionResult> 
   try {
     const db = await getUserDb(userId);
     if (!db) return { ok: false, error: "Finish onboarding first." };
-    const { data, error } = await db.supabase
+    const withLocation = await db.supabase
       .from("profiles")
       .update({
         name: name.value,
@@ -92,9 +92,19 @@ export async function updateProfile(input: ProfileInput): Promise<ActionResult> 
       })
       .eq("id", db.profileId)
       .select("id");
-    if (error || !data?.length) {
-      if (error) console.error("updateProfile failed", error.message);
-      if (error && /school_location/i.test(error.message)) return { ok: false, error: SCHOOL_MIGRATION };
+    const saved =
+      withLocation.error && /school_location/i.test(withLocation.error.message)
+        ? location.value
+          ? withLocation
+          : await db.supabase
+              .from("profiles")
+              .update({ name: name.value, school: school.value, grade: grade.value })
+              .eq("id", db.profileId)
+              .select("id")
+        : withLocation;
+    if (saved.error || !saved.data?.length) {
+      if (saved.error) console.error("updateProfile failed", saved.error.message);
+      if (saved.error && /school_location/i.test(saved.error.message)) return { ok: false, error: SCHOOL_MIGRATION };
       return { ok: false, error: "Couldn't save your profile. Try again." };
     }
     const clerk = await clerkClient();

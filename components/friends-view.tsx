@@ -423,7 +423,7 @@ function FriendDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="friend-title"
-        className="w-full max-w-md rounded-[28px] border border-white/90 bg-white/95 p-6 shadow-[0_12px_32px_rgba(51,64,128,0.16)] backdrop-blur-[14px]"
+        className="max-h-[min(640px,calc(100vh-2rem))] w-full max-w-md overflow-y-auto rounded-[28px] border border-white/90 bg-white/95 p-6 shadow-[0_12px_32px_rgba(51,64,128,0.16)] backdrop-blur-[14px]"
       >
         <div className="flex items-start gap-3">
           <MemberAvatar initials={initials(person.name)} color={memberColor(person.profileId)} size={64} />
