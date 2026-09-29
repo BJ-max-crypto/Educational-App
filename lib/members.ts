@@ -1,6 +1,7 @@
 import "server-only";
 
 import { initials } from "@/lib/dates";
+import { nameForViewer } from "@/lib/identity";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Classmate, Course, PersonConnection } from "@/lib/types";
@@ -59,8 +60,8 @@ function missingTable(message: string) {
 
 /**
  * Connections for the signed-in profile, plus classmates per course.
- * A classmate is an accepted connection on a class both people are sharing.
- * Reads other people only through the service role, and only their name, username, and course names.
+ * A classmate is an accepted connection who also added that course themselves.
+ * The full name is included only after this pair's connection is accepted.
  */
 export async function loadMembers(profileId: string, courses: Course[]): Promise<MemberDirectory> {
   const admin = createAdminClient();
@@ -149,30 +150,26 @@ export async function loadMembers(profileId: string, courses: Course[]): Promise
     if (!person?.username) continue;
     const iAsked = row.requester_id === profileId;
     const accepted = row.status === "accepted";
-    const mineKeys = iAsked ? row.requester_classes : row.addressee_classes;
-    const theirKeys = iAsked ? row.addressee_classes : row.requester_classes;
-    const sharedKeys = accepted ? mineKeys.filter((key) => theirKeys.includes(key)) : [];
     const theirs = namesByPerson.get(otherId);
+    const both = accepted ? [...mine.keys()].filter((key) => theirs?.has(key)) : [];
     connections.push({
       id: row.id,
       profileId: otherId,
-      name: person.name?.trim() || person.username,
+      name: nameForViewer(accepted, person.name),
       username: person.username,
       school: person.school?.trim() || null,
       schoolLocation: person.school_location?.trim() || null,
       grade: person.grade?.trim() || null,
       theirCourses: accepted ? [...(theirs?.values() ?? [])].sort((a, b) => a.localeCompare(b)) : [],
       status: accepted ? "accepted" : iAsked ? "outgoing" : "incoming",
-      sharedClasses: accepted
-        ? [...mine.entries()]
-            .map(([key, name]) => ({ key, name }))
-            .sort((a, b) => a.name.localeCompare(b.name))
-        : [],
-      myClasses: sharedKeys,
-      theirClasses: sharedKeys,
+      sharedClasses: both
+        .map((key) => ({ key, name: mine.get(key) ?? key }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      myClasses: both,
+      theirClasses: both,
     });
   }
-  connections.sort((a, b) => a.name.localeCompare(b.name));
+  connections.sort((a, b) => (a.name ?? a.username).localeCompare(b.name ?? b.username));
 
   const classmatesByCourseId: Record<string, Classmate[]> = {};
   for (const course of courses) {
@@ -182,21 +179,18 @@ export async function loadMembers(profileId: string, courses: Course[]): Promise
     }
     const key = courseKey(course.name);
     classmatesByCourseId[course.id] = connections
-      .filter(
-        (item) =>
-          item.status === "accepted" &&
-          item.myClasses.includes(key) &&
-          item.theirClasses.includes(key) &&
-          namesByPerson.get(item.profileId)?.has(key),
-      )
-      .map((item) => ({
+      .filter((item) => item.status === "accepted" && namesByPerson.get(item.profileId)?.has(key))
+      .map((item) => {
+        const label = item.name ?? item.username;
+        return {
         id: item.profileId,
-        name: item.name,
+        name: label,
         username: item.username,
-        initials: initials(item.name),
+        initials: initials(label),
         color: memberColor(item.profileId),
         grade: people.get(item.profileId)?.grade ?? null,
-      }));
+      };
+      });
   }
 
   return {

@@ -23,3 +23,24 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
+
+@keyframes pane-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pane-step-in {
+  animation: pane-step-in 320ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane-step-in {
+    animation: none;
+  }
+}

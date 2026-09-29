@@ -2,10 +2,10 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
-import { COURSE_COLORS } from "@/lib/course-colors";
+import { randomBytes } from "node:crypto";
+import { nameForViewer } from "@/lib/identity";
 import { courseKey, normalizeUsername, shareableKeys, validateUsername } from "@/lib/members";
-import { joinNamedClass, listSchoolmates } from "@/lib/school-feed";
-import type { Schoolmate } from "@/lib/types";
+import { countSchoolmates, joinNamedClass } from "@/lib/school-feed";
 import { validateClassName } from "@/lib/onboarding";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserDb } from "@/lib/user-db";
@@ -13,6 +13,8 @@ import { getUserDb } from "@/lib/user-db";
 type Result = { ok: true } | { ok: false; error: string };
 
 const MIGRATION = "Adding people needs a database update (supabase/migrations/0005_members.sql).";
+const INVITE_MIGRATION = "Invites need a database update (supabase/migrations/0009_invite_codes.sql).";
+const INVITE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 const CLASS_MIGRATION =
   "Choosing classes needs a database update (supabase/migrations/0006_connection_classes.sql).";
 
@@ -55,7 +57,8 @@ export async function setUsername(raw: string): Promise<Result> {
 
 export type UsernameMatch = {
   profileId: string;
-  name: string;
+  /** Null until both people have approved. */
+  name: string | null;
   username: string;
   school: string | null;
   schoolLocation: string | null;
@@ -123,12 +126,13 @@ export async function searchUsernames(
     }
   }
 
+  const approvedIds = ids.filter((id) => status.get(id)?.status === "accepted");
   const classes = new Map<string, string[]>();
-  if (ids.length) {
+  if (approvedIds.length) {
     const { data: courses, error: coursesError } = await who.admin
       .from("courses")
       .select("user_id, name, is_unsorted")
-      .in("user_id", ids)
+      .in("user_id", approvedIds)
       .eq("is_unsorted", false);
     if (coursesError) return { ok: false, error: "Couldn't search right now." };
     for (const course of courses ?? []) {
@@ -142,9 +146,12 @@ export async function searchUsernames(
     ok: true,
     matches: data
       .filter((row) => row.username)
-      .map((row) => ({
+      .map((row) => {
+        const link = status.get(row.id);
+        const approved = link?.status === "accepted";
+        return {
         profileId: row.id,
-        name: row.name?.trim() || row.username!,
+        name: nameForViewer(approved, row.name),
         username: row.username!,
         school: row.school?.trim() || null,
         schoolLocation: (() => {
@@ -153,23 +160,24 @@ export async function searchUsernames(
           return typeof value === "string" ? value.trim() || null : null;
         })(),
         grade: row.grade?.trim() || null,
-        classes: (classes.get(row.id) ?? []).slice(0, 8),
-        status: status.get(row.id)?.status ?? "none",
-        connectionId: status.get(row.id)?.connectionId ?? null,
-      })),
+        classes: approved ? (classes.get(row.id) ?? []).slice(0, 8) : [],
+        status: link?.status ?? "none",
+        connectionId: link?.connectionId ?? null,
+        };
+      }),
   };
 }
 
-export async function schoolSuggestions(): Promise<
-  { ok: true; people: Schoolmate[]; notice: string | null } | { ok: false; error: string }
+export async function schoolPresence(): Promise<
+  { ok: true; count: number | null; school: string | null; notice: string | null } | { ok: false; error: string }
 > {
   const who = await caller();
   if (!("profileId" in who)) return { ok: false, error: who.error };
   try {
-    const result = await listSchoolmates(who.profileId);
-    return { ok: true, ...result };
+    const result = await countSchoolmates(who.profileId);
+    return { ok: true, count: result.count, school: result.school, notice: result.notice };
   } catch (error) {
-    console.error("schoolSuggestions failed", error);
+    console.error("schoolPresence failed", error);
     return { ok: false, error: "Couldn't look up your school right now." };
   }
 }
@@ -278,31 +286,9 @@ export async function respondToConnection(connectionId: string, accept: boolean)
   return { ok: true };
 }
 
-/** Gives the other person a course with this name when they don't already have it. */
-async function ensureCourse(
-  admin: ReturnType<typeof createAdminClient>,
-  profileId: string,
-  name: string,
-  color: string,
-) {
-  const key = courseKey(name);
-  const { data, error } = await admin.from("courses").select("name, is_unsorted").eq("user_id", profileId);
-  if (error) throw new Error(error.message);
-  if ((data ?? []).some((row) => !row.is_unsorted && courseKey(row.name) === key)) return;
-  const named = (data ?? []).filter((row) => !row.is_unsorted).length;
-  const { error: insertError } = await admin.from("courses").insert({
-    user_id: profileId,
-    name,
-    color: color || COURSE_COLORS[named % COURSE_COLORS.length],
-    is_unsorted: false,
-  });
-  if (insertError && !/unique|duplicate/i.test(insertError.message)) throw new Error(insertError.message);
-}
-
 /**
- * After both people have approved, either person checks the classes they want to share.
- * Each checked class is created for the other person when they don't have it, and both
- * are marked as sharing it.
+ * Records classes this person already has. It does not create courses on the other account.
+ * A classmate only appears when both people added that course themselves.
  */
 export async function setSharedClasses(connectionId: string, classKeys: string[]): Promise<Result> {
   const owned = await ownConnection(connectionId);
@@ -310,8 +296,6 @@ export async function setSharedClasses(connectionId: string, classKeys: string[]
   if (owned.row.status !== "accepted") {
     return { ok: false, error: "You can share classes after they approve." };
   }
-  const otherId =
-    owned.row.requester_id === owned.profileId ? owned.row.addressee_id : owned.row.requester_id;
   const { data, error } = await owned.admin
     .from("courses")
     .select("user_id, name, color, is_unsorted")
@@ -339,17 +323,6 @@ export async function setSharedClasses(connectionId: string, classKeys: string[]
   }
   const previous = [...new Set([...link.requester_classes, ...link.addressee_classes])];
   const next = [...chosen, ...previous.filter((key) => !mine.has(key))].slice(0, 40);
-
-  try {
-    for (const key of chosen) {
-      const source = mine.get(key);
-      if (!source) continue;
-      await ensureCourse(owned.admin, otherId, source.name, source.color);
-    }
-  } catch (caught) {
-    console.error("setSharedClasses course", caught);
-    return { ok: false, error: "Couldn't add that class for them." };
-  }
 
   const { error: updateError } = await owned.admin
     .from("connections")
@@ -382,4 +355,81 @@ export async function removeConnection(connectionId: string): Promise<Result> {
   }
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+function inviteCode() {
+  const bytes = randomBytes(8);
+  return [...bytes].map((byte) => INVITE_ALPHABET[byte % INVITE_ALPHABET.length]).join("");
+}
+
+export async function myInvite(): Promise<{ ok: true; code: string } | { ok: false; error: string }> {
+  const who = await caller();
+  if (!("profileId" in who)) return { ok: false, error: who.error };
+  const existing = await who.admin.from("profiles").select("invite_code").eq("id", who.profileId).maybeSingle();
+  if (existing.error) {
+    if (/invite_code|schema cache/i.test(existing.error.message)) return { ok: false, error: INVITE_MIGRATION };
+    return { ok: false, error: "Couldn't load your invite." };
+  }
+  if (existing.data?.invite_code) return { ok: true, code: existing.data.invite_code };
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = inviteCode();
+    const { error } = await who.admin.from("profiles").update({ invite_code: code }).eq("id", who.profileId);
+    if (!error) return { ok: true, code };
+    if (/invite_code|schema cache/i.test(error.message)) return { ok: false, error: INVITE_MIGRATION };
+    if (!/unique|duplicate/i.test(error.message)) return { ok: false, error: "Couldn't create your invite." };
+  }
+  return { ok: false, error: "Couldn't create your invite." };
+}
+
+export async function lookupInvite(
+  raw: string,
+): Promise<
+  | {
+      ok: true;
+      username: string;
+      profileId: string;
+      name: string | null;
+      status: UsernameMatch["status"];
+      connectionId: string | null;
+    }
+  | { ok: false; error: string }
+> {
+  const code = raw.trim().toLowerCase();
+  if (!/^[a-z0-9]{8}$/.test(code)) return { ok: false, error: "That invite isn't valid." };
+  const who = await caller();
+  if (!("profileId" in who)) return { ok: false, error: who.error };
+  const found = await who.admin
+    .from("profiles")
+    .select("id, name, username")
+    .eq("invite_code", code)
+    .maybeSingle();
+  if (found.error) {
+    if (/invite_code|schema cache/i.test(found.error.message)) return { ok: false, error: INVITE_MIGRATION };
+    return { ok: false, error: "Couldn't open that invite." };
+  }
+  const row = found.data;
+  if (!row?.username) return { ok: false, error: "That invite isn't valid." };
+  if (row.id === who.profileId) return { ok: false, error: "This is your invite. Share it with a classmate." };
+
+  const { data: links, error: linksError } = await who.admin
+    .from("connections")
+    .select("id, requester_id, addressee_id, status")
+    .or(`requester_id.eq.${who.profileId},addressee_id.eq.${who.profileId}`);
+  if (linksError) return { ok: false, error: "Couldn't open that invite." };
+  const link = (links ?? []).find((item) => item.requester_id === row.id || item.addressee_id === row.id);
+  const status: UsernameMatch["status"] = !link
+    ? "none"
+    : link.status === "accepted"
+      ? "accepted"
+      : link.requester_id === who.profileId
+        ? "outgoing"
+        : "incoming";
+  return {
+    ok: true,
+    username: row.username,
+    profileId: row.id,
+    name: nameForViewer(status === "accepted", row.name),
+    status,
+    connectionId: link?.id ?? null,
+  };
 }

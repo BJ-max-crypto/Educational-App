@@ -70,6 +70,8 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
   const [classNames, setClassNames] = useState<string[]>([]);
   const [classDraft, setClassDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [shown, setShown] = useState(true);
+  const [fading, setFading] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const step = steps[index];
@@ -100,8 +102,21 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
     setError(null);
   }
 
+  function changeStep(nextIndex: number) {
+    if (fading || nextIndex < 0 || nextIndex >= steps.length) return;
+    setFading(true);
+    setShown(false);
+    window.setTimeout(() => {
+      setIndex(nextIndex);
+      setError(null);
+      setShown(true);
+      setFading(false);
+    }, 160);
+  }
+
   function next(event: React.FormEvent) {
     event.preventDefault();
+    if (fading) return;
     if (step.id !== "classes") {
       const result = validators[step.id](answers[step.id]);
       if ("error" in result) {
@@ -110,8 +125,7 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
       }
     }
     if (!last) {
-      setIndex(index + 1);
-      setError(null);
+      changeStep(index + 1);
       return;
     }
     startTransition(async () => {
@@ -140,7 +154,10 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
         {steps.map((item, i) => (
           <span
             key={item.id}
-            className={cn("h-1.5 flex-1 rounded-full", i <= index ? "bg-[#4f7cff]" : "bg-white/80")}
+            className={cn(
+              "h-1.5 flex-1 rounded-full transition-colors duration-300 motion-reduce:transition-none",
+              i <= index ? "bg-[#4f7cff]" : "bg-white/80",
+            )}
           />
         ))}
       </div>
@@ -148,7 +165,14 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
         QUESTION {index + 1} OF {steps.length}
       </p>
 
-      <form onSubmit={next} className="mt-2" noValidate>
+      <form
+        onSubmit={next}
+        className={cn(
+          "mt-2 transition-opacity duration-150 ease-out motion-reduce:transition-none",
+          shown ? "pane-step-in opacity-100" : "opacity-0",
+        )}
+        noValidate
+      >
         <label htmlFor={step.id} className="block text-[26px] font-semibold leading-tight tracking-[-0.03em] text-[#14213d]">
           {step.question}
         </label>
@@ -246,10 +270,7 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
         <div className="mt-4 flex items-center justify-between">
           <button
             type="button"
-            onClick={() => {
-              setError(null);
-              setIndex(index - 1);
-            }}
+            onClick={() => changeStep(index - 1)}
             className={cn("text-[15px] font-semibold text-[#5b6478]", index === 0 && "invisible")}
           >
             Back

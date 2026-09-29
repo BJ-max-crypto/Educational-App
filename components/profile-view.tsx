@@ -10,6 +10,7 @@ import { GoogleCalendarConnect } from "@/components/google-calendar-connect";
 import { SyncButton, useSyncLabel } from "@/components/sync-status";
 import { initials } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
+import { SchoolInvite } from "@/components/school-invite";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -95,6 +96,7 @@ export function ProfileView() {
           Sign out
         </button>
       </GlassCard>
+      <SchoolInvite />
       <Link
         href="/profile/friends"
         data-m="tap"

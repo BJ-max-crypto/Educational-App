@@ -10,6 +10,7 @@ export type Database = {
           grade: string | null;
           school_location: string | null;
           username: string | null;
+          invite_code: string | null;
           onboarding_completed_at: string | null;
           created_at: string;
           updated_at: string;
@@ -22,6 +23,7 @@ export type Database = {
           grade?: string | null;
           school_location?: string | null;
           username?: string | null;
+          invite_code?: string | null;
           onboarding_completed_at?: string | null;
         };
         Update: {
@@ -31,6 +33,7 @@ export type Database = {
           grade?: string | null;
           school_location?: string | null;
           username?: string | null;
+          invite_code?: string | null;
           onboarding_completed_at?: string | null;
         };
         Relationships: [];

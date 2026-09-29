@@ -7,6 +7,7 @@ import { respondToConnection } from "@/app/(app)/member-actions";
 import { GlassCard } from "@/components/glass-card";
 import { batchSimilar } from "@/lib/suggest";
 import { useCoursework } from "@/lib/coursework";
+import { publicLabel } from "@/lib/identity";
 
 export function NotificationsBar() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export function NotificationsBar() {
           {incoming.map((person) => (
             <li key={person.id} data-m="wrap" className="flex flex-wrap items-center gap-2">
               <p className="min-w-0 flex-1 text-[14px] text-[#14213d]">
-                <span className="font-semibold">{person.name}</span> wants to connect.
+                <span className="font-semibold">{publicLabel(person.name, person.username)}</span> wants to connect.
               </p>
               <button
                 type="button"

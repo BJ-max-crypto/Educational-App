@@ -7,9 +7,8 @@ import {
   joinSchoolClass,
   removeConnection,
   requestConnection,
-  schoolSuggestions,
+  schoolPresence,
   searchUsernames,
-  setSharedClasses,
   setUsername,
   type UsernameMatch,
 } from "@/app/(app)/member-actions";
@@ -17,8 +16,10 @@ import { GlassCard } from "@/components/glass-card";
 import { MemberAvatar } from "@/components/member-avatar";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { initials } from "@/lib/dates";
+import { publicLabel } from "@/lib/identity";
 import { useCoursework } from "@/lib/coursework";
-import type { PersonConnection, Schoolmate, SharedClass } from "@/lib/types";
+import type { PersonConnection } from "@/lib/types";
+import { SchoolInvite } from "@/components/school-invite";
 
 function memberColor(id: string) {
   let hash = 0;
@@ -31,7 +32,7 @@ const fieldClass =
 
 type CardPerson = {
   profileId: string;
-  name: string;
+  name: string | null;
   username: string;
   school: string | null;
   schoolLocation: string | null;
@@ -47,7 +48,7 @@ export function FriendsView() {
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<UsernameMatch[] | null>(null);
-  const [schoolmates, setSchoolmates] = useState<Schoolmate[] | null>(null);
+  const [schoolCount, setSchoolCount] = useState<number | null>(null);
   const [schoolNotice, setSchoolNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -58,15 +59,15 @@ export function FriendsView() {
 
   useEffect(() => {
     let current = true;
-    void schoolSuggestions().then((result) => {
+    void schoolPresence().then((result) => {
       if (!current) return;
       if (!result.ok) {
         setSchoolNotice(result.error);
-        setSchoolmates([]);
+        setSchoolCount(null);
         return;
       }
       setSchoolNotice(result.notice);
-      setSchoolmates(result.people);
+      setSchoolCount(result.count);
     });
     return () => {
       current = false;
@@ -120,7 +121,7 @@ export function FriendsView() {
       </Link>
       <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-[#14213d]">Add Friends</h1>
       <p className="mt-1 text-[14px] text-[#5b6478]">
-        Search a username. People at {user.school || "your school"} show up here too, with the classes they created.
+        Search a username, or share your invite with someone at {user.school || "your school"}. Names stay hidden until you both approve.
       </p>
 
       {membersNotice ? (
@@ -231,35 +232,19 @@ export function FriendsView() {
             <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">AT YOUR SCHOOL</h2>
             {schoolNotice ? (
               <p className="mt-2 text-[14px] text-[#5b6478]">{schoolNotice}</p>
-            ) : !user.school || !user.schoolLocation ? (
-              <p className="mt-2 text-[14px] text-[#5b6478]">
-                Add your school and its location on your profile to see people there.
-              </p>
-            ) : schoolmates && schoolmates.length === 0 ? (
-              <p className="mt-2 text-[14px] text-[#5b6478]">Nobody else from your school is here yet.</p>
+            ) : !user.school ? (
+              <p className="mt-2 text-[14px] text-[#5b6478]">Add your school on your profile, then share your invite.</p>
             ) : (
-              <div className="mt-3 space-y-3">
-                {(schoolmates ?? []).map((person) => {
-                  const link = connections.find((item) => item.profileId === person.profileId);
-                  const card: CardPerson = {
-                    ...person,
-                    status: link?.status ?? "none",
-                    connectionId: link?.id ?? null,
-                  };
-                  return (
-                    <ProfileCard
-                      key={person.profileId}
-                      person={card}
-                      mine={mine}
-                      disabled={pending}
-                      onOpen={() => openFriend(person.profileId)}
-                      onAdd={() => void run(() => requestConnection(person.profileId))}
-                      onJoin={(className) => void run(() => joinSchoolClass(className))}
-                    />
-                  );
-                })}
-              </div>
+              <p className="mt-2 text-[14px] text-[#5b6478]">
+                {schoolCount != null
+                  ? `${schoolCount} other Pane ${schoolCount === 1 ? "user" : "users"} at ${user.school}. `
+                  : null}
+                Share your invite with a classmate. Pane never lists names from your school.
+              </p>
             )}
+            <div className="mt-3">
+              <SchoolInvite />
+            </div>
           </section>
         </>
       )}
@@ -276,7 +261,6 @@ export function FriendsView() {
           mine={mine}
           disabled={pending}
           onClose={() => setOpen(null)}
-          onShare={(keys) => void run(() => setSharedClasses(open.id, keys))}
           onRemove={() =>
             void run(() => removeConnection(open.id)).then((ok) => {
               if (ok) setOpen(null);
@@ -309,10 +293,12 @@ function ProfileCard({
     <GlassCard className="p-4 sm:p-5">
       <div className="flex items-start gap-3">
         <button type="button" onClick={friend ? onOpen : undefined} className="flex min-w-0 flex-1 items-start gap-3 text-left">
-          <MemberAvatar initials={initials(person.name)} color={memberColor(person.profileId)} size={52} />
+          <MemberAvatar initials={initials(person.name ?? person.username)} color={memberColor(person.profileId)} size={52} />
           <span className="min-w-0">
-            <span className="block truncate text-[16px] font-semibold text-[#14213d]">{person.name}</span>
-            <span className="block truncate text-[13px] text-[#5b6478]">@{person.username}</span>
+            <span className="block truncate text-[16px] font-semibold text-[#14213d]">
+              {publicLabel(person.name, person.username)}
+            </span>
+            {person.name ? <span className="block truncate text-[13px] text-[#5b6478]">@{person.username}</span> : null}
             <span className="mt-1 block text-[13px] text-[#5b6478]">
               {[person.grade ? `Grade ${person.grade}` : null, person.school, person.schoolLocation]
                 .filter(Boolean)
@@ -322,7 +308,7 @@ function ProfileCard({
         </button>
         <CardAction person={person} disabled={disabled} onAdd={onAdd} onOpen={onOpen} />
       </div>
-      {person.classes.length > 0 ? (
+      {friend && person.classes.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {person.classes.map((className) => {
             const joined = mine.has(className.toLowerCase());
@@ -396,7 +382,6 @@ function FriendDialog({
   mine,
   disabled,
   onClose,
-  onShare,
   onRemove,
   onJoin,
 }: {
@@ -404,18 +389,11 @@ function FriendDialog({
   mine: Set<string>;
   disabled: boolean;
   onClose: () => void;
-  onShare: (keys: string[]) => void;
   onRemove: () => void;
   onJoin: (className: string) => void;
 }) {
-  const [checked, setChecked] = useState(person.myClasses);
   const [expanded, setExpanded] = useState(false);
-
-  function toggle(key: string) {
-    const next = checked.includes(key) ? checked.filter((item) => item !== key) : [...checked, key];
-    setChecked(next);
-    onShare(next);
-  }
+  const label = publicLabel(person.name, person.username);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[#14213d]/35 p-4 sm:items-center">
@@ -426,12 +404,12 @@ function FriendDialog({
         className="max-h-[min(640px,calc(100vh-2rem))] w-full max-w-md overflow-y-auto rounded-[28px] border border-white/90 bg-white/95 p-6 shadow-[0_12px_32px_rgba(51,64,128,0.16)] backdrop-blur-[14px]"
       >
         <div className="flex items-start gap-3">
-          <MemberAvatar initials={initials(person.name)} color={memberColor(person.profileId)} size={64} />
+          <MemberAvatar initials={initials(label)} color={memberColor(person.profileId)} size={64} />
           <div className="min-w-0 flex-1">
             <h2 id="friend-title" className="truncate text-[20px] font-semibold text-[#14213d]">
-              {person.name}
+              {label}
             </h2>
-            <p className="text-[14px] text-[#5b6478]">@{person.username}</p>
+            {person.name ? <p className="text-[14px] text-[#5b6478]">@{person.username}</p> : null}
             <p className="mt-1 text-[14px] text-[#5b6478]">
               {[person.grade ? `Grade ${person.grade}` : null, person.school, person.schoolLocation]
                 .filter(Boolean)
@@ -463,12 +441,19 @@ function FriendDialog({
         </button>
         {expanded ? (
           <div className="mt-2">
-            <ClassChecks classes={person.sharedClasses} checked={checked} disabled={disabled} onToggle={toggle} />
-            {person.sharedClasses.length > 0 ? (
-              <p className="mt-1 text-[12px] text-[#5b6478]">
-                Checking a class adds them to it, even if they hadn&apos;t added that class.
+            {person.sharedClasses.length === 0 ? (
+              <p className="text-[12px] text-[#5b6478]">
+                You both have to add a class yourselves before it shows here.
               </p>
-            ) : null}
+            ) : (
+              <ul className="space-y-1">
+                {person.sharedClasses.map((item) => (
+                  <li key={item.key} className="text-[14px] font-medium text-[#14213d]">
+                    {item.name}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         ) : null}
         <div className="mt-5 flex items-center justify-between">
@@ -486,39 +471,5 @@ function FriendDialog({
         </div>
       </div>
     </div>
-  );
-}
-
-function ClassChecks({
-  classes,
-  checked,
-  disabled,
-  onToggle,
-}: {
-  classes: SharedClass[];
-  checked: string[];
-  disabled: boolean;
-  onToggle: (key: string) => void;
-}) {
-  if (classes.length === 0) {
-    return <p className="text-[12px] text-[#5b6478]">You don&apos;t have a class to share yet.</p>;
-  }
-  return (
-    <ul className="space-y-1">
-      {classes.map((item) => (
-        <li key={item.key}>
-          <label data-m="tap" className="flex items-center gap-2 text-[14px] font-medium text-[#14213d]">
-            <input
-              type="checkbox"
-              className="size-4 accent-[#4f7cff]"
-              checked={checked.includes(item.key)}
-              disabled={disabled}
-              onChange={() => onToggle(item.key)}
-            />
-            {item.name}
-          </label>
-        </li>
-      ))}
-    </ul>
   );
 }

@@ -72,9 +72,11 @@ Then run `supabase/migrations/0002_profiles_without_supabase_auth.sql`. The exis
 
 Then run `supabase/migrations/0003_weekly_summary_and_calendar.sql` for the Planner summary cache and Google Calendar busy blocks.
 
-Then run `supabase/migrations/0004_assignment_course_overrides.sql` so course tags survive a sync, `supabase/migrations/0005_members.sql` for usernames and connection requests, `supabase/migrations/0006_connection_classes.sql` so each person can choose the classes they share, `supabase/migrations/0007_school_and_shared_feed.sql` for school location, the shared class feed, and schedule photos, and `supabase/migrations/0008_school_courses.sql` for shared class labels.
+Then run `supabase/migrations/0004_assignment_course_overrides.sql` so course tags survive a sync, `supabase/migrations/0005_members.sql` for usernames and connection requests, `supabase/migrations/0006_connection_classes.sql` so each person can choose the classes they share, `supabase/migrations/0007_school_and_shared_feed.sql` for school location, the shared class feed, and schedule photos, `supabase/migrations/0008_school_courses.sql` for shared class labels, and `supabase/migrations/0009_invite_codes.sql` for personal invite codes.
 
 `school_courses` is a label shared by students at the same school (`name`, `teacher`, optional `period`). `user_courses` records which labels a student chose. Tagging an Unsorted assignment searches that school's labels and shows name and teacher. A student has to click a suggestion to use it. Creating a course adds a new row unless the school, name, teacher, and period already match exactly. The label does not list other students and does not make them visible. Visibility stays on the mutual-approval Members connection.
+
+A student's full name is returned only after that pair's connection is `accepted` (one person requests, the other approves). Username search, school counts, and invite links do not include the name before that. The school section shows a count of other Pane users at the same school only when that count is at least 5. Smaller counts are omitted. Each profile has an invite code at `/invite/[code]`; opening it shows the username and asks for a request. It does not list classmates by name.
 
 Then connect Clerk as a third-party auth provider (the JWT-template integration is deprecated):
 

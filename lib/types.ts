@@ -41,7 +41,8 @@ export type SharedClass = {
 export type PersonConnection = {
   id: string;
   profileId: string;
-  name: string;
+  /** Null until both people have approved. The server omits the real name before that. */
+  name: string | null;
   username: string;
   school: string | null;
   schoolLocation: string | null;

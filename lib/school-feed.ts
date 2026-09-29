@@ -3,7 +3,7 @@ import "server-only";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { courseKey } from "@/lib/members";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Schoolmate } from "@/lib/types";
+import { visibleSchoolCount } from "@/lib/identity";
 
 export const SCHOOL_MIGRATION =
   "School classes need a database update (supabase/migrations/0007_school_and_shared_feed.sql).";
@@ -278,53 +278,31 @@ export async function joinNamedClass(profileId: string, name: string, color?: st
   return { ok: true as const, courseName: schoolClass.name };
 }
 
-export async function listSchoolmates(profileId: string): Promise<{ people: Schoolmate[]; notice: string | null }> {
+/**
+ * How many other accounts share this school. Names are never selected.
+ * Counts under the floor are returned as null so a small number can't identify someone.
+ */
+export async function countSchoolmates(
+  profileId: string,
+): Promise<{ count: number | null; school: string | null; notice: string | null }> {
   const admin = createAdminClient();
   const located = await place(admin, profileId);
-  if (located.missing) return { people: [], notice: SCHOOL_MIGRATION };
-  if (!located.place) return { people: [], notice: null };
-  if (!located.place.location) return { people: [], notice: null };
+  if (located.missing) return { count: null, school: null, notice: SCHOOL_MIGRATION };
+  if (!located.place) return { count: null, school: null, notice: null };
   const { data, error } = await admin
     .from("profiles")
-    .select("id, name, username, school, school_location, grade")
+    .select("id, school, school_location")
     .ilike("school", located.place.schoolName)
     .neq("id", profileId)
-    .limit(40);
+    .limit(500);
   if (error) {
-    if (MISSING.test(error.message)) return { people: [], notice: SCHOOL_MIGRATION };
+    if (MISSING.test(error.message)) return { count: null, school: located.place.schoolName, notice: SCHOOL_MIGRATION };
     throw new Error(error.message);
   }
-  const rows = (data ?? []).filter(
-    (row) =>
-      row.username &&
-      schoolKey(row.school) === located.place!.school &&
-      locationKey(row.school_location) === located.place!.location,
-  );
-  const ids = rows.map((row) => row.id);
-  const classes = new Map<string, string[]>();
-  if (ids.length) {
-    const { data: courses, error: coursesError } = await admin
-      .from("courses")
-      .select("user_id, name, is_unsorted")
-      .in("user_id", ids)
-      .eq("is_unsorted", false);
-    if (coursesError) throw new Error(coursesError.message);
-    for (const course of courses ?? []) {
-      const list = classes.get(course.user_id) ?? [];
-      if (!list.some((name) => courseKey(name) === courseKey(course.name))) list.push(course.name);
-      classes.set(course.user_id, list);
-    }
-  }
-  return {
-    notice: null,
-    people: rows.slice(0, 12).map((row) => ({
-      profileId: row.id,
-      name: row.name?.trim() || row.username!,
-      username: row.username!,
-      school: row.school?.trim() || null,
-      schoolLocation: row.school_location?.trim() || null,
-      grade: row.grade?.trim() || null,
-      classes: (classes.get(row.id) ?? []).slice(0, 8),
-    })),
-  };
+  const others = (data ?? []).filter((row) => {
+    if (schoolKey(row.school) !== located.place!.school) return false;
+    if (!located.place!.location || !row.school_location) return true;
+    return locationKey(row.school_location) === located.place!.location;
+  }).length;
+  return { count: visibleSchoolCount(others), school: located.place.schoolName, notice: null };
 }
