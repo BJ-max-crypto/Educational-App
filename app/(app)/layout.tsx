@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { AppShell } from "@/components/app-shell";
+import { LoadingMark } from "@/components/loading-mark";
 import { loadCoursework } from "@/lib/coursework-data";
 import { loadMembers } from "@/lib/members";
 import type { OnboardingMetadata } from "@/lib/onboarding";
@@ -18,7 +20,40 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!meta.onboardingComplete) redirect("/onboarding");
 
   const timeZone = storedTimeZone(user);
-  const db = user ? await getUserDb(user.id) : null;
+  const email = user?.primaryEmailAddress?.emailAddress ?? "";
+  const fallbackName = meta.name || user?.fullName || user?.firstName || "Student";
+
+  return (
+    <Suspense fallback={<LoadingMark />}>
+      <ReadyShell
+        clerkUserId={user?.id ?? null}
+        timeZone={timeZone}
+        email={email}
+        fallbackName={fallbackName}
+        fallbackGrade={meta.grade ?? null}
+      >
+        {children}
+      </ReadyShell>
+    </Suspense>
+  );
+}
+
+async function ReadyShell({
+  clerkUserId,
+  timeZone,
+  email,
+  fallbackName,
+  fallbackGrade,
+  children,
+}: {
+  clerkUserId: string | null;
+  timeZone: string | null;
+  email: string;
+  fallbackName: string;
+  fallbackGrade: string | null;
+  children: React.ReactNode;
+}) {
+  const db = clerkUserId ? await getUserDb(clerkUserId) : null;
   let data = await loadCoursework(db);
 
   if (db && data.feed) {
@@ -45,8 +80,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       })
     : { username: null, connections: [], classmatesByCourseId: {}, notice: null };
 
-  const name = data.profile?.name || meta.name || user?.fullName || user?.firstName || "Student";
-  const email = user?.primaryEmailAddress?.emailAddress ?? "";
+  const name = data.profile?.name || fallbackName;
 
   return (
     <AppShell
@@ -56,7 +90,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         email,
         school: data.profile?.school ?? null,
         schoolLocation: data.profile?.school_location ?? null,
-        grade: data.profile?.grade ?? meta.grade ?? null,
+        grade: data.profile?.grade ?? fallbackGrade,
       }}
       knownTimeZone={timeZone}
       courses={data.courses}
