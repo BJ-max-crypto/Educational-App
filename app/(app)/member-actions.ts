@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import { nameForViewer } from "@/lib/identity";
 import { courseKey, normalizeUsername, shareableKeys, validateUsername } from "@/lib/members";
 import { countSchoolmates, joinNamedClass } from "@/lib/school-feed";
+import { addExplicitCourse } from "@/lib/school-courses";
 import { validateClassName } from "@/lib/onboarding";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserDb } from "@/lib/user-db";
@@ -431,5 +432,167 @@ export async function lookupInvite(
     name: nameForViewer(status === "accepted", row.name),
     status,
     connectionId: link?.id ?? null,
+  };
+}
+
+const COURSE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type ClassLinkView = {
+  ok: true;
+  own: boolean;
+  courseName: string;
+  teacher: string;
+  period: string | null;
+  username: string;
+  profileId: string;
+  /** Null until this pair has approved. */
+  name: string | null;
+  status: UsernameMatch["status"];
+  connectionId: string | null;
+};
+
+type ClassOffer = {
+  who: Caller;
+  course: {
+    id: string;
+    name: string;
+    teacher: string;
+    schoolCourseId: string | null;
+  };
+  period: string | null;
+  owner: { id: string; name: string | null; username: string };
+  status: UsernameMatch["status"];
+  connectionId: string | null;
+};
+
+/** One class, plus the owner's username. Never a roster or anyone else's name. */
+async function readClassLink(rawId: string): Promise<ClassOffer | { error: string }> {
+  const id = rawId.trim().toLowerCase();
+  if (!COURSE_ID.test(id)) return { error: "That class link isn't valid." };
+  const who = await caller();
+  if (!("profileId" in who)) return { error: who.error };
+
+  const full = await who.admin
+    .from("courses")
+    .select("id, user_id, name, teacher, is_unsorted, school_course_id")
+    .eq("id", id)
+    .maybeSingle();
+  const looked =
+    full.error && /school_course_id/i.test(full.error.message)
+      ? await who.admin.from("courses").select("id, user_id, name, teacher, is_unsorted").eq("id", id).maybeSingle()
+      : full;
+  if (looked.error) return { error: "Couldn't open that class." };
+  const row = looked.data;
+  if (!row || row.is_unsorted || !row.name.trim()) return { error: "That class link isn't valid." };
+
+  const owner = await who.admin.from("profiles").select("id, name, username").eq("id", row.user_id).maybeSingle();
+  if (owner.error || !owner.data?.username) return { error: "That class link isn't valid." };
+
+  const schoolCourseId = "school_course_id" in row && row.school_course_id ? row.school_course_id : null;
+  let period: string | null = null;
+  if (schoolCourseId) {
+    const label = await who.admin.from("school_courses").select("period").eq("id", schoolCourseId).maybeSingle();
+    if (!label.error) period = label.data?.period?.trim() || null;
+  }
+
+  const { data: links, error: linksError } = await who.admin
+    .from("connections")
+    .select("id, requester_id, addressee_id, status")
+    .or(
+      `and(requester_id.eq.${who.profileId},addressee_id.eq.${owner.data.id}),and(requester_id.eq.${owner.data.id},addressee_id.eq.${who.profileId})`,
+    );
+  if (linksError) return { error: "Couldn't open that class." };
+  const link = links?.[0];
+  const status: UsernameMatch["status"] = !link
+    ? "none"
+    : link.status === "accepted"
+      ? "accepted"
+      : link.requester_id === who.profileId
+        ? "outgoing"
+        : "incoming";
+
+  return {
+    who,
+    course: {
+      id: row.id,
+      name: row.name.trim(),
+      teacher: row.teacher?.trim() ?? "",
+      schoolCourseId,
+    },
+    period,
+    owner: { id: owner.data.id, name: owner.data.name, username: owner.data.username },
+    status,
+    connectionId: link?.id ?? null,
+  };
+}
+
+function presentClassLink(offer: ClassOffer): ClassLinkView {
+  const own = offer.owner.id === offer.who.profileId;
+  const approved = own || offer.status === "accepted";
+  return {
+    ok: true,
+    own,
+    courseName: offer.course.name,
+    teacher: offer.course.teacher,
+    period: offer.period,
+    username: offer.owner.username,
+    profileId: offer.owner.id,
+    name: nameForViewer(approved, offer.owner.name),
+    status: own ? "none" : offer.status,
+    connectionId: own ? null : offer.connectionId,
+  };
+}
+
+export async function lookupClassLink(courseId: string): Promise<ClassLinkView | { ok: false; error: string }> {
+  const offer = await readClassLink(courseId);
+  if ("error" in offer) return { ok: false, error: offer.error };
+  return presentClassLink(offer);
+}
+
+/**
+ * Adds that one class onto the visitor's own list.
+ * Starts a connection when there isn't one. Does not copy the sharer's other classes.
+ */
+export async function joinClassLink(
+  courseId: string,
+): Promise<
+  | {
+      ok: true;
+      courseId: string;
+      courseName: string;
+      status: UsernameMatch["status"];
+      connectionId: string | null;
+    }
+  | { ok: false; error: string }
+> {
+  const offer = await readClassLink(courseId);
+  if ("error" in offer) return { ok: false, error: offer.error };
+  if (offer.owner.id === offer.who.profileId) {
+    return { ok: false, error: "This is your class. Share the link with a classmate." };
+  }
+
+  const draft = {
+    name: offer.course.name,
+    teacher: offer.course.teacher,
+    period: offer.period ?? undefined,
+  };
+  let added = offer.course.schoolCourseId
+    ? await addExplicitCourse(offer.who.profileId, { schoolCourseId: offer.course.schoolCourseId })
+    : await addExplicitCourse(offer.who.profileId, draft);
+  if (!added.ok && offer.course.schoolCourseId) added = await addExplicitCourse(offer.who.profileId, draft);
+  if (!added.ok) return added;
+
+  let status = offer.status;
+  if (status === "none") {
+    const requested = await requestConnection(offer.owner.id);
+    if (requested.ok) status = "outgoing";
+  }
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    courseId: added.course.id,
+    courseName: added.course.name,
+    status,
+    connectionId: offer.connectionId,
   };
 }

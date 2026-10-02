@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AssignmentRow } from "@/components/assignment-row";
+import { ClassLink } from "@/components/class-link";
 import { CourseSelect } from "@/components/course-select";
 import { GlassCard } from "@/components/glass-card";
 import { LeaveClassButton } from "@/components/leave-class-button";
@@ -188,13 +189,9 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
               ))}
             </div>
           ) : (
-            <p className="mt-4 text-[14px] text-[#5b6478]">
-              Nobody you know is in this class yet.{" "}
-              <Link href="/profile/friends" className="font-semibold text-[#14213d] underline-offset-2 hover:underline">
-                You can add people
-              </Link>
-            </p>
+            <p className="mt-4 text-[14px] text-[#5b6478]">Nobody you know is in this class yet.</p>
           )}
+          {course.isUnsorted ? null : <ClassLink courseId={course.id} courseName={course.name} />}
         </GlassCard>
       </div>
     </div>
