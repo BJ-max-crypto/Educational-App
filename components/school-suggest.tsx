@@ -92,7 +92,7 @@ export function SchoolSuggest({
           id={`${id}-suggestions`}
           role="listbox"
           aria-label="Schools"
-          className="absolute z-20 mt-2 w-full overflow-hidden rounded-[18px] border border-white/90 bg-white/95 shadow-[0_12px_32px_rgba(51,64,128,0.14)]"
+          className="mt-2 w-full overflow-hidden rounded-[18px] border border-white/90 bg-white/95 shadow-[0_12px_32px_rgba(51,64,128,0.14)]"
         >
           {shown.map((item) => (
             <li key={`${item.school}\n${item.location ?? ""}`} role="presentation">

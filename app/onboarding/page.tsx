@@ -20,9 +20,9 @@ export default async function OnboardingPage() {
   return (
     <div className="relative min-h-screen">
       <Background />
-      <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col px-4 py-10">
-        <Image src="/logo.png" alt="Pane" width={70} height={80} priority className="mx-auto h-20 w-auto" />
-        <div className="flex flex-1 items-center">
+      <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col items-center justify-center px-4 py-10">
+        <Image src="/logo.png" alt="Pane" width={84} height={96} priority className="mb-6 h-24 w-auto" />
+        <div className="w-full">
           {problems.length > 0 ? (
             <GlassCard className="w-full p-7 sm:p-9">
               <h1 className="text-[22px] font-semibold text-[#14213d]">Pane isn&apos;t set up yet</h1>
