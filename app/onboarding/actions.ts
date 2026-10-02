@@ -1,6 +1,6 @@
 "use server";
 
-import { clerkClient, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { encryptSecret } from "@/lib/crypto";
 import {
   validateClassName,
@@ -19,6 +19,57 @@ import { syncFeed } from "@/lib/sync";
 import { isValidZone } from "@/lib/timezone";
 
 export type OnboardingResult = { ok: true } | { ok: false; error: string };
+
+export type SchoolSuggestion = { school: string; location: string | null };
+
+/** School names already saved on profiles. Names of students are not included. */
+export async function suggestSchools(
+  raw: string,
+): Promise<{ ok: true; schools: SchoolSuggestion[] } | { ok: false; error: string }> {
+  const query = raw.trim().replace(/\s+/g, " ");
+  if (query.length < 2) return { ok: true, schools: [] };
+  const { userId } = await auth();
+  if (!userId) return { ok: false, error: "Sign in to search schools." };
+
+  const admin = createAdminClient();
+  const escaped = query.replace(/[\\%_]/g, (char) => `\\${char}`);
+  const pattern = `%${escaped}%`;
+  const full = await admin.from("profiles").select("school, school_location").ilike("school", pattern).limit(1000);
+  const looked =
+    full.error && /school_location/i.test(full.error.message)
+      ? await admin.from("profiles").select("school").ilike("school", pattern).limit(1000)
+      : full;
+  if (looked.error) {
+    console.error("suggestSchools failed", looked.error.message);
+    return { ok: false, error: "Couldn't search schools." };
+  }
+
+  const needle = query.toLowerCase();
+  const grouped = new Map<string, { school: string; location: string | null; count: number }>();
+  for (const row of looked.data ?? []) {
+    const school = row.school?.trim().replace(/\s+/g, " ") ?? "";
+    if (!school) continue;
+    const locationValue = "school_location" in row ? row.school_location : null;
+    const location = typeof locationValue === "string" ? locationValue.trim().replace(/\s+/g, " ") || null : null;
+    const key = `${school.toLowerCase()}\n${(location ?? "").toLowerCase()}`;
+    const existing = grouped.get(key);
+    if (existing) existing.count += 1;
+    else grouped.set(key, { school, location, count: 1 });
+  }
+
+  const schools = [...grouped.values()]
+    .sort((a, b) => {
+      const aStart = a.school.toLowerCase().startsWith(needle) ? 0 : 1;
+      const bStart = b.school.toLowerCase().startsWith(needle) ? 0 : 1;
+      if (aStart !== bStart) return aStart - bStart;
+      if (a.count !== b.count) return b.count - a.count;
+      return a.school.localeCompare(b.school) || (a.location ?? "").localeCompare(b.location ?? "");
+    })
+    .slice(0, 6)
+    .map(({ school, location }) => ({ school, location }));
+
+  return { ok: true, schools };
+}
 
 type OnboardingInput = {
   name: string;

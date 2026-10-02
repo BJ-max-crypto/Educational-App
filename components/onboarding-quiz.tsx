@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { completeOnboarding } from "@/app/onboarding/actions";
 import { GlassCard } from "@/components/glass-card";
+import { SchoolSuggest } from "@/components/school-suggest";
 import { cn } from "@/lib/cn";
 import {
   GRADES,
@@ -240,6 +241,25 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
                 <p className="mt-3 text-[13px] text-[#5b6478]">You can skip this and add classes later.</p>
               )}
             </div>
+          ) : step.id === "school" ? (
+            <SchoolSuggest
+              id="school"
+              value={answers.school}
+              location={answers.location}
+              placeholder="Lincoln High School"
+              className={inputClass}
+              invalid={Boolean(error)}
+              autoFocus
+              onValue={(school) => set(school)}
+              onPick={(school, location) => {
+                setAnswers((current) => ({
+                  ...current,
+                  school,
+                  location: location ?? current.location,
+                }));
+                setError(null);
+              }}
+            />
           ) : (
             <input
               key={step.id}
@@ -251,7 +271,6 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? "onboarding-error" : undefined}
               {...(step.id === "name" && { autoComplete: "name", placeholder: "Alex Morgan" })}
-              {...(step.id === "school" && { autoComplete: "organization", placeholder: "Lincoln High School" })}
               {...(step.id === "location" && { autoComplete: "address-level2", placeholder: "Portland, Oregon" })}
               {...(step.id === "icalUrl" && {
                 type: "url",

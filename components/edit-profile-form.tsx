@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateProfile } from "@/app/(app)/actions";
+import { SchoolSuggest } from "@/components/school-suggest";
 import { cn } from "@/lib/cn";
 import { GRADES, validateLocation, validateName } from "@/lib/onboarding";
 
@@ -68,17 +69,26 @@ export function EditProfileForm({
           aria-invalid={error ? true : undefined}
         />
       </label>
-      <label className="block">
-        <span className="text-[13px] font-medium text-[#5b6478]">School</span>
-        <input
-          className={cn(inputClass, "mt-1")}
+      <div>
+        <label htmlFor="profile-school" className="block text-[13px] font-medium text-[#5b6478]">
+          School
+        </label>
+        <SchoolSuggest
+          id="profile-school"
           value={values.school}
-          onChange={set("school")}
-          autoComplete="organization"
-          maxLength={120}
+          location={values.location}
           placeholder="Optional"
+          className={cn(inputClass, "mt-1")}
+          onValue={(school) => {
+            setValues((current) => ({ ...current, school }));
+            setError(null);
+          }}
+          onPick={(school, location) => {
+            setValues((current) => ({ ...current, school, location: location ?? current.location }));
+            setError(null);
+          }}
         />
-      </label>
+      </div>
       <label className="block">
         <span className="text-[13px] font-medium text-[#5b6478]">School location</span>
         <input
