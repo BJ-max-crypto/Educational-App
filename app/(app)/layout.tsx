@@ -76,9 +76,9 @@ async function ReadyShell({
         const notice = /requester_classes|addressee_classes/i.test(message)
           ? "Choosing classes needs a database update. Run supabase/migrations/0006_connection_classes.sql."
           : "Adding people needs a database update. Run supabase/migrations/0005_members.sql, then 0006_connection_classes.sql.";
-        return { username: null, connections: [], classmatesByCourseId: {}, notice };
+        return { username: null, connections: [], mutuals: [], classmatesByCourseId: {}, notice };
       })
-    : { username: null, connections: [], classmatesByCourseId: {}, notice: null };
+    : { username: null, connections: [], mutuals: [], classmatesByCourseId: {}, notice: null };
 
   const name = data.profile?.name || fallbackName;
 
@@ -106,6 +106,7 @@ async function ReadyShell({
       }
       username={members.username}
       connections={members.connections}
+      mutuals={members.mutuals}
       membersNotice={members.notice}
       classmatesByCourseId={members.classmatesByCourseId}
     >

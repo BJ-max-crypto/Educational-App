@@ -16,9 +16,9 @@ import { GlassCard } from "@/components/glass-card";
 import { MemberAvatar } from "@/components/member-avatar";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { initials } from "@/lib/dates";
-import { publicLabel } from "@/lib/identity";
+import { connectionLabel, publicLabel } from "@/lib/identity";
 import { useCoursework } from "@/lib/coursework";
-import type { PersonConnection } from "@/lib/types";
+import type { MutualContact, PersonConnection } from "@/lib/types";
 import { SchoolInvite } from "@/components/school-invite";
 
 function memberColor(id: string) {
@@ -40,10 +40,11 @@ type CardPerson = {
   classes: string[];
   status: UsernameMatch["status"];
   connectionId: string | null;
+  connectionCount: number;
 };
 
 export function FriendsView() {
-  const { username, connections, membersNotice, courses, user } = useCoursework();
+  const { username, connections, mutuals, membersNotice, courses, user } = useCoursework();
   const router = useRouter();
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
@@ -216,6 +217,7 @@ export function FriendsView() {
                       classes: person.theirCourses,
                       status: "accepted",
                       connectionId: person.id,
+                      connectionCount: person.connectionCount,
                     }}
                     mine={mine}
                     disabled={pending}
@@ -227,6 +229,25 @@ export function FriendsView() {
               </div>
             )}
           </section>
+
+          {mutuals.length > 0 ? (
+            <section className="mt-6">
+              <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">CONNECTIONS</h2>
+              <div className="mt-3 space-y-3">
+                {mutuals.map((person) => (
+                  <ProfileCard
+                    key={person.profileId}
+                    person={cardFromMutual(person)}
+                    mine={mine}
+                    disabled={pending}
+                    onOpen={() => undefined}
+                    onAdd={() => void run(() => requestConnection(person.profileId))}
+                    onJoin={() => undefined}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section className="mt-6">
             <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">AT YOUR SCHOOL</h2>
@@ -273,6 +294,21 @@ export function FriendsView() {
   );
 }
 
+function cardFromMutual(person: MutualContact): CardPerson {
+  return {
+    profileId: person.profileId,
+    name: null,
+    username: person.username,
+    school: person.school,
+    schoolLocation: person.schoolLocation,
+    grade: person.grade,
+    classes: [],
+    status: person.status,
+    connectionId: person.connectionId,
+    connectionCount: person.connectionCount,
+  };
+}
+
 function ProfileCard({
   person,
   mine,
@@ -299,6 +335,11 @@ function ProfileCard({
               {publicLabel(person.name, person.username)}
             </span>
             {person.name ? <span className="block truncate text-[13px] text-[#5b6478]">@{person.username}</span> : null}
+            {person.connectionCount > 0 ? (
+              <span className="mt-1 block text-[13px] font-semibold text-[#14213d]">
+                {connectionLabel(person.connectionCount)}
+              </span>
+            ) : null}
             <span className="mt-1 block text-[13px] text-[#5b6478]">
               {[person.grade ? `Grade ${person.grade}` : null, person.school, person.schoolLocation]
                 .filter(Boolean)
@@ -410,6 +451,9 @@ function FriendDialog({
               {label}
             </h2>
             {person.name ? <p className="text-[14px] text-[#5b6478]">@{person.username}</p> : null}
+            {person.connectionCount > 0 ? (
+              <p className="mt-1 text-[14px] font-semibold text-[#14213d]">{connectionLabel(person.connectionCount)}</p>
+            ) : null}
             <p className="mt-1 text-[14px] text-[#5b6478]">
               {[person.grade ? `Grade ${person.grade}` : null, person.school, person.schoolLocation]
                 .filter(Boolean)

@@ -21,7 +21,7 @@ export type AddCourseResult =
 export type SchoolCourseSearch = { suggestions: SchoolCourseHit[]; notice: string | null };
 
 type CourseDraft = {
-  name: string;
+  name?: string;
   teacher?: string;
   period?: string;
   /** Set only after the student clicks a suggestion. Never inferred from text. */

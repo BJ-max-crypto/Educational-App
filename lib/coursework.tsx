@@ -25,6 +25,7 @@ import type {
   Classmate,
   Course,
   FeedSummary,
+  MutualContact,
   PersonConnection,
   PlannerBucket,
 } from "@/lib/types";
@@ -70,6 +71,7 @@ type CourseworkValue = {
   feed: FeedSummary | null;
   username: string | null;
   connections: PersonConnection[];
+  mutuals: MutualContact[];
   membersNotice: string | null;
   classmates: (courseId: string) => Classmate[];
   syncing: boolean;
@@ -114,6 +116,7 @@ export function CourseworkProvider({
   feed,
   username,
   connections,
+  mutuals,
   membersNotice,
   classmatesByCourseId,
   children,
@@ -124,6 +127,7 @@ export function CourseworkProvider({
   feed: FeedSummary | null;
   username: string | null;
   connections: PersonConnection[];
+  mutuals: MutualContact[];
   membersNotice: string | null;
   classmatesByCourseId: Record<string, Classmate[]>;
   children: React.ReactNode;
@@ -305,6 +309,7 @@ export function CourseworkProvider({
       courseById,
       username,
       connections,
+      mutuals,
       membersNotice,
       classmates: (courseId) => classmatesByCourseId[courseId] ?? [],
       taggableCourses: courses.filter((course) => !course.isUnsorted),
@@ -389,6 +394,7 @@ export function CourseworkProvider({
     assignments,
     classmatesByCourseId,
     connections,
+    mutuals,
     courseById,
     courses,
     createCourse,

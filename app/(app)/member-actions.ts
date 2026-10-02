@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { nameForViewer } from "@/lib/identity";
-import { courseKey, normalizeUsername, shareableKeys, validateUsername } from "@/lib/members";
+import { courseKey, normalizeUsername, sharedConnectionCounts, shareableKeys, validateUsername } from "@/lib/members";
 import { countSchoolmates, joinNamedClass } from "@/lib/school-feed";
 import { addExplicitCourse } from "@/lib/school-courses";
 import { validateClassName } from "@/lib/onboarding";
@@ -67,6 +67,8 @@ export type UsernameMatch = {
   classes: string[];
   status: "none" | "incoming" | "outgoing" | "accepted";
   connectionId: string | null;
+  /** Accepted friends of the viewer who are also connected to this person. */
+  connectionCount: number;
 };
 
 export async function searchUsernames(
@@ -127,6 +129,11 @@ export async function searchUsernames(
     }
   }
 
+  const shared = await sharedConnectionCounts(who.profileId, ids).catch((error) => {
+    console.error("search connection counts failed", error);
+    return new Map<string, number>();
+  });
+
   const approvedIds = ids.filter((id) => status.get(id)?.status === "accepted");
   const classes = new Map<string, string[]>();
   if (approvedIds.length) {
@@ -164,6 +171,7 @@ export async function searchUsernames(
         classes: approved ? (classes.get(row.id) ?? []).slice(0, 8) : [],
         status: link?.status ?? "none",
         connectionId: link?.connectionId ?? null,
+        connectionCount: shared.get(row.id) ?? 0,
         };
       }),
   };
@@ -488,11 +496,13 @@ async function readClassLink(rawId: string): Promise<ClassOffer | { error: strin
   const owner = await who.admin.from("profiles").select("id, name, username").eq("id", row.user_id).maybeSingle();
   if (owner.error || !owner.data?.username) return { error: "That class link isn't valid." };
 
-  const schoolCourseId = "school_course_id" in row && row.school_course_id ? row.school_course_id : null;
+  const linkedId = "school_course_id" in row ? row.school_course_id : null;
+  const schoolCourseId = typeof linkedId === "string" ? linkedId : null;
   let period: string | null = null;
   if (schoolCourseId) {
     const label = await who.admin.from("school_courses").select("period").eq("id", schoolCourseId).maybeSingle();
-    if (!label.error) period = label.data?.period?.trim() || null;
+    const periodValue = label.data?.period;
+    if (!label.error && typeof periodValue === "string") period = periodValue.trim() || null;
   }
 
   const { data: links, error: linksError } = await who.admin

@@ -4,11 +4,13 @@ import { initials } from "@/lib/dates";
 import { nameForViewer } from "@/lib/identity";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Classmate, Course, PersonConnection } from "@/lib/types";
+import type { Classmate, Course, MutualContact, PersonConnection } from "@/lib/types";
 
 export type MemberDirectory = {
   username: string | null;
   connections: PersonConnection[];
+  /** People your accepted friends are connected to, besides you. Usernames only. */
+  mutuals: MutualContact[];
   classmatesByCourseId: Record<string, Classmate[]>;
   /** Set when 0005 or 0006 has not been applied yet. */
   notice: string | null;
@@ -22,9 +24,33 @@ const CLASSES_NOTICE =
 const EMPTY: MemberDirectory = {
   username: null,
   connections: [],
+  mutuals: [],
   classmatesByCourseId: {},
   notice: null,
 };
+
+type Edge = { requester_id: string; addressee_id: string };
+
+/**
+ * For each person, how many of `friendIds` are accepted friends with them.
+ * The viewer's own link to a friend is not counted.
+ */
+export function connectionCounts(viewerId: string, friendIds: string[], edges: Edge[]) {
+  const friends = new Set(friendIds);
+  const links = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    const pair = [edge.requester_id, edge.addressee_id];
+    for (const friend of pair) {
+      if (!friends.has(friend) || friend === viewerId) continue;
+      const person = pair[0] === friend ? pair[1] : pair[0];
+      if (!person || person === viewerId || person === friend) continue;
+      const linked = links.get(person) ?? new Set<string>();
+      linked.add(friend);
+      links.set(person, linked);
+    }
+  }
+  return new Map([...links].map(([person, linked]) => [person, linked.size]));
+}
 
 export function memberColor(id: string) {
   let hash = 0;
@@ -143,6 +169,11 @@ export async function loadMembers(profileId: string, courses: Course[]): Promise
   }
   const mine = namesByPerson.get(profileId) ?? new Map<string, string>();
 
+  const friendIds = (links.data ?? [])
+    .filter((row) => row.status === "accepted")
+    .map((row) => (row.requester_id === profileId ? row.addressee_id : row.requester_id));
+  const counts = await sharedCounts(admin, profileId, friendIds);
+
   const connections: PersonConnection[] = [];
   for (const row of links.data ?? []) {
     const otherId = row.requester_id === profileId ? row.addressee_id : row.requester_id;
@@ -167,9 +198,27 @@ export async function loadMembers(profileId: string, courses: Course[]): Promise
         .sort((a, b) => a.name.localeCompare(b.name)),
       myClasses: both,
       theirClasses: both,
+      connectionCount: counts.get(otherId) ?? 0,
     });
   }
   connections.sort((a, b) => (a.name ?? a.username).localeCompare(b.name ?? b.username));
+
+  const acceptedIds = new Set(friendIds);
+  const pending = new Map<string, { status: "incoming" | "outgoing"; connectionId: string }>();
+  for (const row of links.data ?? []) {
+    if (row.status === "accepted") continue;
+    const otherId = row.requester_id === profileId ? row.addressee_id : row.requester_id;
+    pending.set(otherId, {
+      connectionId: row.id,
+      status: row.requester_id === profileId ? "outgoing" : "incoming",
+    });
+  }
+  const mutualIds = [...counts.entries()]
+    .filter(([id, count]) => count > 0 && id !== profileId && !acceptedIds.has(id))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 24)
+    .map(([id]) => id);
+  const mutuals = await mutualContacts(admin, mutualIds, counts, pending);
 
   const classmatesByCourseId: Record<string, Classmate[]> = {};
   for (const course of courses) {
@@ -196,7 +245,86 @@ export async function loadMembers(profileId: string, courses: Course[]): Promise
   return {
     username: me.data?.username ?? null,
     connections,
+    mutuals,
     classmatesByCourseId,
     notice: null,
   };
+}
+
+/** Mutual-connection counts for specific people the viewer is already allowed to see. */
+export async function sharedConnectionCounts(viewerId: string, targetIds: string[]) {
+  const counts = new Map<string, number>();
+  for (const id of targetIds) counts.set(id, 0);
+  if (!targetIds.length) return counts;
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("connections")
+    .select("requester_id, addressee_id")
+    .eq("status", "accepted")
+    .or(`requester_id.eq.${viewerId},addressee_id.eq.${viewerId}`);
+  if (error || !data?.length) return counts;
+  const friendIds = data.map((row) => (row.requester_id === viewerId ? row.addressee_id : row.requester_id));
+  const shared = await sharedCounts(admin, viewerId, friendIds);
+  for (const id of targetIds) counts.set(id, shared.get(id) ?? 0);
+  return counts;
+}
+
+async function sharedCounts(
+  admin: ReturnType<typeof createAdminClient>,
+  viewerId: string,
+  friendIds: string[],
+) {
+  if (!friendIds.length) return new Map<string, number>();
+  const ids = friendIds.join(",");
+  const { data, error } = await admin
+    .from("connections")
+    .select("requester_id, addressee_id")
+    .eq("status", "accepted")
+    .or(`requester_id.in.(${ids}),addressee_id.in.(${ids})`);
+  if (error) {
+    console.error("sharedCounts failed", error.message);
+    return new Map<string, number>();
+  }
+  return connectionCounts(viewerId, friendIds, data ?? []);
+}
+
+async function mutualContacts(
+  admin: ReturnType<typeof createAdminClient>,
+  ids: string[],
+  counts: Map<string, number>,
+  pending: Map<string, { status: "incoming" | "outgoing"; connectionId: string }>,
+): Promise<MutualContact[]> {
+  if (!ids.length) return [];
+  const full = await admin.from("profiles").select("id, username, grade, school, school_location").in("id", ids);
+  const result =
+    full.error && /school_location/i.test(full.error.message)
+      ? await admin.from("profiles").select("id, username, grade, school").in("id", ids)
+      : full;
+  if (result.error) {
+    console.error("mutualContacts failed", result.error.message);
+    return [];
+  }
+  return (result.data ?? [])
+    .flatMap((row) => {
+      if (!row.username) return [];
+      const count = counts.get(row.id) ?? 0;
+      if (count < 1) return [];
+      const waiting = pending.get(row.id);
+      const contact: MutualContact = {
+        profileId: row.id,
+        username: row.username,
+        school: row.school?.trim() || null,
+        schoolLocation: (() => {
+          if (!("school_location" in row)) return null;
+          const value = row.school_location;
+          return typeof value === "string" ? value.trim() || null : null;
+        })(),
+        grade: row.grade?.trim() || null,
+        connectionCount: count,
+        status: waiting?.status ?? "none",
+        connectionId: waiting?.connectionId ?? null,
+      };
+      return [contact];
+    })
+    .sort((a, b) => b.connectionCount - a.connectionCount || a.username.localeCompare(b.username));
 }

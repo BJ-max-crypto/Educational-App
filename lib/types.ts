@@ -56,6 +56,20 @@ export type PersonConnection = {
   myClasses: string[];
   /** Same shared keys, once the connection is accepted. */
   theirClasses: string[];
+  /** Accepted friends of the viewer who are also accepted friends with this person. */
+  connectionCount: number;
+};
+
+/** Someone a friend is connected to. The real name is omitted until this pair approves. */
+export type MutualContact = {
+  profileId: string;
+  username: string;
+  school: string | null;
+  schoolLocation: string | null;
+  grade: string | null;
+  connectionCount: number;
+  status: "none" | "incoming" | "outgoing";
+  connectionId: string | null;
 };
 
 export type Schoolmate = {

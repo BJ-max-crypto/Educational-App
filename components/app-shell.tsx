@@ -9,7 +9,7 @@ import { TagSuggestionsPanel } from "@/components/tag-suggestions";
 import { TopNav } from "@/components/top-nav";
 import { TimeZoneReporter } from "@/components/time-zone-reporter";
 import { CourseworkProvider, type ShellUser } from "@/lib/coursework";
-import type { Assignment, Classmate, Course, FeedSummary, PersonConnection } from "@/lib/types";
+import type { Assignment, Classmate, Course, FeedSummary, MutualContact, PersonConnection } from "@/lib/types";
 
 export function AppShell({
   user,
@@ -19,6 +19,7 @@ export function AppShell({
   feed,
   username,
   connections,
+  mutuals,
   membersNotice,
   classmatesByCourseId,
   children,
@@ -30,6 +31,7 @@ export function AppShell({
   feed: FeedSummary | null;
   username: string | null;
   connections: PersonConnection[];
+  mutuals: MutualContact[];
   membersNotice: string | null;
   classmatesByCourseId: Record<string, Classmate[]>;
   children: React.ReactNode;
@@ -44,6 +46,7 @@ export function AppShell({
       feed={feed}
       username={username}
       connections={connections}
+      mutuals={mutuals}
       membersNotice={membersNotice}
       classmatesByCourseId={classmatesByCourseId}
     >

@@ -16,6 +16,11 @@ export function publicLabel(name: string | null, username: string) {
   return name?.trim() || `@${username}`;
 }
 
+/** Mutual friends: people you are connected to who are also connected to this person. */
+export function connectionLabel(count: number) {
+  return `${count} ${count === 1 ? "Connection" : "Connections"}`;
+}
+
 export function visibleSchoolCount(others: number): number | null {
   if (!Number.isInteger(others) || others < SCHOOL_COUNT_FLOOR) return null;
   return others;
