@@ -177,7 +177,9 @@ export async function generateSummary(input: SummaryInput, image?: ScheduleImage
     },
     body: JSON.stringify({
       model,
-      max_tokens: 400,
+      max_tokens: 600,
+      // This card is a few sentences. Leave the token budget for that text.
+      thinking: { type: "disabled" },
       system: systemPrompt(input.usedCalendar, Boolean(image)),
       messages: [
         {
@@ -228,8 +230,8 @@ export async function generateSummary(input: SummaryInput, image?: ScheduleImage
     .trim();
   if (json.stop_reason === "max_tokens") {
     const end = Math.max(text.lastIndexOf(". "), text.lastIndexOf("! "), text.lastIndexOf("? "));
-    text = end > 0 ? text.slice(0, end + 1) : "";
+    if (end > 0) text = text.slice(0, end + 1);
   }
-  if (!text) throw new Error("Anthropic returned no usable text");
+  if (!text) throw new SummaryError("The AI service returned an empty summary. Try Refresh.");
   return { summary: text, model };
 }
