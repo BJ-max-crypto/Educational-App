@@ -1,10 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import type { PriorityLabelsResponse } from "@/app/api/priority-labels/route";
+import { AiToolsMenu } from "@/components/ai-tools-menu";
 import { AssignmentRow } from "@/components/assignment-row";
 import { CourseSelect } from "@/components/course-select";
 import { GlassCard } from "@/components/glass-card";
+import { clientTimeZone } from "@/lib/client-zone";
 import { plannerWhen } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
+import type { PriorityTier } from "@/lib/priority-tier";
 import type { PlannerBucket } from "@/lib/types";
 
 const sections: { id: PlannerBucket; label: string }[] = [
@@ -19,17 +24,53 @@ export function PlannerView() {
   const groups = plannerGroups();
   const total = sections.reduce((sum, section) => sum + groups[section.id].length, 0);
   const clock = now ?? new Date();
+  const [labels, setLabels] = useState<Record<string, PriorityTier> | null>(null);
+  const [labelError, setLabelError] = useState<string | null>(null);
+  const hasLabels = Boolean(labels && Object.keys(labels).length);
+
+  useEffect(() => {
+    let cancel = false;
+    fetch(`/api/priority-labels?tz=${encodeURIComponent(clientTimeZone())}`, { cache: "no-store" })
+      .then((response) => response.json() as Promise<PriorityLabelsResponse>)
+      .then((data) => {
+        if (cancel) return;
+        setLabels(data.labels);
+      })
+      .catch(() => {
+        if (!cancel) setLabels(null);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, []);
 
   return (
     <GlassCard className="mx-auto w-full max-w-[880px] px-6 py-8 sm:px-10">
-      <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.03em] text-[#14213d]">
-        Planner
-      </h1>
-      <p className="mt-1 text-[15px] text-[#5b6478]">
-        {ready
-          ? `${total} ${total === 1 ? "thing" : "things"} to do this week`
-          : "Loading your list"}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.03em] text-[#14213d]">
+            Planner
+          </h1>
+          <p className="mt-1 text-[15px] text-[#5b6478]">
+            {ready
+              ? `${total} ${total === 1 ? "thing" : "things"} to do this week`
+              : "Loading your list"}
+          </p>
+          {hasLabels ? <p className="mt-1 text-[13px] text-[#5b6478]">Pane&apos;s priority estimate</p> : null}
+          {labelError ? (
+            <p role="alert" className="mt-2 text-[14px] font-medium text-[#e5484d]">
+              {labelError}
+            </p>
+          ) : null}
+        </div>
+        <AiToolsMenu
+          hasLabels={hasLabels}
+          onResult={(data) => {
+            setLabels(data.labels);
+            setLabelError(data.error ?? null);
+          }}
+        />
+      </div>
       <div className="mt-8 space-y-7">
         {sections.map((section) => {
           const items = groups[section.id];
@@ -46,6 +87,8 @@ export function PlannerView() {
                     <AssignmentRow
                       key={item.id}
                       variant="plain"
+                      assignmentId={item.id}
+                      priority={labels?.[item.id]}
                       title={item.title}
                       done={false}
                       onToggle={() => toggleDone(item.id)}
@@ -56,6 +99,7 @@ export function PlannerView() {
                         course?.isUnsorted ? (
                           <CourseSelect
                             label={`Course for ${item.title}`}
+                            assignmentId={item.id}
                             value={null}
                             onSelect={(courseId) => void assignCourse([item.id], courseId)}
                           />

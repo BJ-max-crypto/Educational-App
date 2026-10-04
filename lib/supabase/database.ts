@@ -349,6 +349,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      ai_notes: {
+        Row: {
+          user_id: string;
+          kind: string;
+          subject: string;
+          for_date: string;
+          time_zone: string;
+          payload: Record<string, unknown>;
+          model: string;
+          generated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          kind: string;
+          subject: string;
+          for_date: string;
+          time_zone: string;
+          payload: Record<string, unknown>;
+          model: string;
+          generated_at?: string;
+        };
+        Update: {
+          for_date?: string;
+          time_zone?: string;
+          payload?: Record<string, unknown>;
+          model?: string;
+          generated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

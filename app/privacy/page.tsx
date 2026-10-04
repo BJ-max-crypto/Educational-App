@@ -22,6 +22,10 @@ export default function PrivacyPage() {
               Google calendar data are used to show your own deadlines and busy times.
             </p>
             <p>Other students see you only after you both approve a connection.</p>
+            <p>
+              Assignment titles are sent to the AI service only when you ask for a breakdown, a priority estimate, or a
+              course suggestion. A priority letter is Pane&apos;s estimate, not a grade.
+            </p>
           </div>
         </GlassCard>
       </div>

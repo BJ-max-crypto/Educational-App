@@ -1,6 +1,14 @@
 "use client";
 
+import { AssignmentAi } from "@/components/assignment-ai";
 import { cn } from "@/lib/cn";
+import { tierMeaning, type PriorityTier } from "@/lib/priority-tier";
+
+const tierColor: Record<PriorityTier, string> = {
+  A: "#e5484d",
+  B: "#d97706",
+  C: "#5b6478",
+};
 
 export function AssignmentRow({
   title,
@@ -13,6 +21,8 @@ export function AssignmentRow({
   when,
   chip,
   variant,
+  assignmentId,
+  priority,
 }: {
   title: string;
   done: boolean;
@@ -24,6 +34,8 @@ export function AssignmentRow({
   when?: string;
   chip?: React.ReactNode;
   variant: "card" | "plain";
+  assignmentId?: string;
+  priority?: PriorityTier;
 }) {
   return (
     <div
@@ -89,7 +101,18 @@ export function AssignmentRow({
         </div>
       </div>
       <div data-m="row-trail" className="flex shrink-0 items-center gap-3">
+        {priority ? (
+          <span
+            title={tierMeaning(priority)}
+            aria-label={`Pane's priority estimate: ${priority}`}
+            className="inline-flex size-6 items-center justify-center rounded-full text-[12px] font-bold text-white"
+            style={{ backgroundColor: tierColor[priority] }}
+          >
+            {priority}
+          </span>
+        ) : null}
         {when ? <p className="text-[13px] font-medium text-[#5b6478]">{when}</p> : null}
+        {assignmentId ? <AssignmentAi assignmentId={assignmentId} title={title} /> : null}
         {chip}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { searchSchoolCourses } from "@/app/(app)/actions";
+import { CourseSuggest } from "@/components/course-suggest";
 import { formatSchoolCourse, type SchoolCourseHit } from "@/lib/school-course-match";
 
 export function SchoolCourseMatches({
@@ -51,7 +52,7 @@ export function SchoolCourseMatches({
   const suggestions = current?.suggestions ?? [];
   const notice = current?.notice ?? null;
 
-  if (!suggestions.length && !notice) return null;
+  if (!suggestions.length && !notice && query.length < 2) return null;
 
   return (
     <div className="w-full space-y-1.5">
@@ -77,6 +78,13 @@ export function SchoolCourseMatches({
           <p className="text-[12px] text-[#5b6478]">Click a class to use it. Create keeps a separate name.</p>
         </>
       ) : null}
+      <CourseSuggest
+        name={name}
+        teacher={teacher}
+        buttonLabel="Smarter match"
+        disabled={disabled}
+        onUseSchool={(course) => onUse(course)}
+      />
     </div>
   );
 }

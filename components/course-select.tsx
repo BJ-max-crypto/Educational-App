@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CourseSuggest } from "@/components/course-suggest";
 import { SchoolCourseMatches } from "@/components/school-course-matches";
 import { cn } from "@/lib/cn";
 import { useCoursework } from "@/lib/coursework";
@@ -24,6 +25,7 @@ export function CourseSelect({
   placeholder = "Tag course…",
   label,
   className,
+  assignmentId,
 }: {
   value: string | null;
   onSelect: (courseId: string | null) => void;
@@ -32,6 +34,7 @@ export function CourseSelect({
   placeholder?: string;
   label: string;
   className?: string;
+  assignmentId?: string;
 }) {
   const { taggableCourses, createCourse } = useCoursework();
   const [creating, setCreating] = useState(false);
@@ -182,6 +185,19 @@ export function CourseSelect({
         <option value={CREATE}>+ Create new course…</option>
       </select>
       {note ? <p className="max-w-[240px] text-[12px] text-[#5b6478]">{note}</p> : null}
-    </div>
-  );
-}
+      {error ? (
+        <p role="alert" className="max-w-[240px] text-[12px] font-semibold text-[#e5484d]">
+          {error}
+        </p>
+      ) : null}
+      {assignmentId ? (
+        <CourseSuggest
+          assignmentId={assignmentId}
+          buttonLabel="Suggest a course"
+          onUseCourse={(courseId) => onSelect(courseId)}
+          onUseSchool={(course) => void chooseExisting(course)}
+        />
+      ) : null}
+      </div>
+    );
+  }

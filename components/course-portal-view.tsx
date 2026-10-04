@@ -57,6 +57,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
   const tagControl = (id: string, title: string) => (
     <CourseSelect
       label={`Course for ${title}`}
+      assignmentId={id}
       value={course.isUnsorted ? null : course.id}
       allowUnsorted={!course.isUnsorted}
       placeholder={course.isUnsorted ? "Tag course…" : "Change course…"}
@@ -124,6 +125,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
                 <AssignmentRow
                   key={item.id}
                   variant="card"
+                  assignmentId={item.id}
                   title={item.title}
                   done={false}
                   onToggle={() => toggleDone(item.id)}
@@ -152,6 +154,7 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
                   <AssignmentRow
                     key={item.id}
                     variant="card"
+                    assignmentId={item.id}
                     title={item.title}
                     done
                     onToggle={() => toggleDone(item.id)}
