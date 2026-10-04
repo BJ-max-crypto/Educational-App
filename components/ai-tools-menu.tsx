@@ -65,7 +65,7 @@ export function AiToolsMenu({
       </button>
       {open ? (
         <div data-m="ai-menu" className="absolute right-0 top-12 z-30 w-[min(18rem,calc(100vw-3rem))]">
-          <GlassCard className="p-3 text-left">
+          <GlassCard solid className="p-3 text-left">
             <p className="px-3 pb-1 text-[12px] font-semibold tracking-[0.06em] text-[#5b6478]">AI TOOLS</p>
             <button
               type="button"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { AssignmentAiResponse } from "@/app/api/assignment-ai/route";
 import { GlassCard } from "@/components/glass-card";
 import { SparkleIcon } from "@/components/sparkle-icon";
@@ -13,12 +14,24 @@ export function AssignmentAi({ assignmentId, title }: { assignmentId: string; ti
   const [busy, setBusy] = useState<Action | null>(null);
   const [shown, setShown] = useState<Action | null>(null);
   const [result, setResult] = useState<AssignmentAiResponse | null>(null);
+  const [phone, setPhone] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
+  const popover = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const query = window.matchMedia("(width < 48rem)");
+    const update = () => setPhone(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     function onPointer(event: MouseEvent) {
-      if (!panel.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (panel.current?.contains(target) || popover.current?.contains(target)) return;
+      setOpen(false);
     }
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
@@ -51,6 +64,59 @@ export function AssignmentAi({ assignmentId, title }: { assignmentId: string; ti
   }
 
   const visible = result && result.action === shown ? result : null;
+  const popoverNode = (
+    <div ref={popover} data-m="ai-pop" className="absolute right-0 top-9 z-30 w-[min(20rem,calc(100vw-2rem))]">
+      <GlassCard solid className="p-4 text-left">
+        <p className="text-[12px] font-semibold tracking-[0.06em] text-[#5b6478]">THIS ASSIGNMENT</p>
+        <div className="mt-2 flex flex-col gap-1">
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void run("breakdown")}
+            className="rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
+          >
+            {busy === "breakdown" ? "Breaking it down…" : "Break this down"}
+          </button>
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void run("reason")}
+            className="rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
+          >
+            {busy === "reason" ? "Thinking…" : "Why this priority"}
+          </button>
+        </div>
+        {visible?.steps ? (
+          <ol className="mt-3 list-decimal space-y-1 pl-4 text-[13px] text-[#14213d]">
+            {visible.steps.map((step, index) => (
+              <li key={`${index}-${step}`}>{step}</li>
+            ))}
+          </ol>
+        ) : null}
+        {visible?.text ? (
+          <div className="mt-3">
+            <p className="text-[12px] font-semibold text-[#5b6478]">Pane&apos;s estimate</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-[#14213d]">{visible.text}</p>
+          </div>
+        ) : null}
+        {visible?.error ? (
+          <p role="alert" className="mt-3 text-[13px] font-medium text-[#e5484d]">
+            {visible.error}
+          </p>
+        ) : null}
+        {visible && !visible.error && (visible.steps || visible.text) ? (
+          <button
+            type="button"
+            disabled={busy !== null || shown === null}
+            onClick={() => shown && void run(shown, true)}
+            className="mt-3 text-[12px] font-semibold text-[#5b6478] disabled:opacity-60"
+          >
+            Refresh
+          </button>
+        ) : null}
+      </GlassCard>
+    </div>
+  );
 
   return (
     <div ref={panel} className="relative" onClick={(event) => event.stopPropagation()}>
@@ -63,59 +129,7 @@ export function AssignmentAi({ assignmentId, title }: { assignmentId: string; ti
       >
         <SparkleIcon className="size-4" />
       </button>
-      {open ? (
-        <div data-m="ai-pop" className="absolute right-0 top-9 z-30 w-[min(20rem,calc(100vw-2rem))]">
-          <GlassCard className="p-4 text-left">
-            <p className="text-[12px] font-semibold tracking-[0.06em] text-[#5b6478]">THIS ASSIGNMENT</p>
-            <div className="mt-2 flex flex-col gap-1">
-              <button
-                type="button"
-                disabled={busy !== null}
-                onClick={() => void run("breakdown")}
-                className="rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
-              >
-                {busy === "breakdown" ? "Breaking it down…" : "Break this down"}
-              </button>
-              <button
-                type="button"
-                disabled={busy !== null}
-                onClick={() => void run("reason")}
-                className="rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
-              >
-                {busy === "reason" ? "Thinking…" : "Why this priority"}
-              </button>
-            </div>
-            {visible?.steps ? (
-              <ol className="mt-3 list-decimal space-y-1 pl-4 text-[13px] text-[#14213d]">
-                {visible.steps.map((step, index) => (
-                  <li key={`${index}-${step}`}>{step}</li>
-                ))}
-              </ol>
-            ) : null}
-            {visible?.text ? (
-              <div className="mt-3">
-                <p className="text-[12px] font-semibold text-[#5b6478]">Pane&apos;s estimate</p>
-                <p className="mt-1 text-[13px] leading-relaxed text-[#14213d]">{visible.text}</p>
-              </div>
-            ) : null}
-            {visible?.error ? (
-              <p role="alert" className="mt-3 text-[13px] font-medium text-[#e5484d]">
-                {visible.error}
-              </p>
-            ) : null}
-            {visible && !visible.error && (visible.steps || visible.text) ? (
-              <button
-                type="button"
-                disabled={busy !== null || shown === null}
-                onClick={() => shown && void run(shown, true)}
-                className="mt-3 text-[12px] font-semibold text-[#5b6478] disabled:opacity-60"
-              >
-                Refresh
-              </button>
-            ) : null}
-          </GlassCard>
-        </div>
-      ) : null}
+      {open ? (phone ? createPortal(popoverNode, document.body) : popoverNode) : null}
     </div>
   );
 }
