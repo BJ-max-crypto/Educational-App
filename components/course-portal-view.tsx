@@ -57,7 +57,6 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
   const tagControl = (id: string, title: string) => (
     <CourseSelect
       label={`Course for ${title}`}
-      assignmentId={id}
       value={course.isUnsorted ? null : course.id}
       allowUnsorted={!course.isUnsorted}
       placeholder={course.isUnsorted ? "Tag course…" : "Change course…"}

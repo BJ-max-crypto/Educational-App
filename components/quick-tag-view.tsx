@@ -169,7 +169,6 @@ export function QuickTagView() {
                 ) : null}
                 <CourseSelect
                   label={`Course for ${item.title}`}
-                  assignmentId={item.id}
                   value={tagged ? item.courseId : null}
                   allowUnsorted
                   placeholder={savingIds.has(item.id) ? "Saving…" : "Tag course…"}

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlannerSummaryResponse } from "@/app/api/planner-summary/route";
 import { removeSchedulePhoto, saveSchedulePhoto, schedulePreview } from "@/app/(app)/schedule-actions";
 import { GlassCard } from "@/components/glass-card";
+import { FEATURE } from "@/lib/pro";
 
 type State =
   | { phase: "loading" }
@@ -120,6 +121,7 @@ function SchedulePhoto({ onSaved }: { onSaved: () => void }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let current = true;
@@ -151,14 +153,23 @@ function SchedulePhoto({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
-    <div className="mt-4 rounded-[22px] border border-white/80 bg-white/45 p-3">
+    <div id={FEATURE.schedulePhoto} className="mt-4 rounded-[22px] border border-white/80 bg-white/45 p-3">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        data-m="tap"
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="text-[14px] font-semibold text-[#14213d]">Schedule photo</span>
+        <span className="text-[13px] font-semibold text-[#5b6478]">{open ? "Hide" : "Show"}</span>
+      </button>
+      {open ? (
+      <div className="mt-3">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-semibold text-[#14213d]">Schedule photo</p>
-          <p className="text-[13px] text-[#5b6478]">
-            Add a picture of your schedule. The weekly summary reads it when it plans your week.
-          </p>
-        </div>
+        <p className="min-w-0 flex-1 text-[13px] text-[#5b6478]">
+          Add a picture of your schedule. The weekly summary reads it when it plans your week.
+        </p>
         <input
           ref={input}
           type="file"
@@ -209,6 +220,8 @@ function SchedulePhoto({ onSaved }: { onSaved: () => void }) {
         <p role="alert" className="mt-2 text-[13px] font-semibold text-[#e5484d]">
           {error}
         </p>
+      ) : null}
+      </div>
       ) : null}
     </div>
   );

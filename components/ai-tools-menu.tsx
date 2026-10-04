@@ -2,19 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PriorityLabelsResponse } from "@/app/api/priority-labels/route";
+import type { WeekReviewResponse } from "@/app/api/week-review/route";
 import { GlassCard } from "@/components/glass-card";
 import { SparkleIcon } from "@/components/sparkle-icon";
 import { clientTimeZone } from "@/lib/client-zone";
+import { FEATURE } from "@/lib/pro";
 
 export function AiToolsMenu({
   hasLabels,
   onResult,
+  onReview,
 }: {
   hasLabels: boolean;
   onResult: (data: PriorityLabelsResponse) => void;
+  onReview: (data: WeekReviewResponse) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<"generate" | "refresh" | null>(null);
+  const [busy, setBusy] = useState<"generate" | "refresh" | "review" | null>(null);
   const [note, setNote] = useState<{ text: string; problem: boolean } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
 
@@ -52,6 +56,29 @@ export function AiToolsMenu({
     setBusy(null);
   }
 
+  async function printReview() {
+    setBusy("review");
+    setNote(null);
+    const response = await fetch(`/api/week-review?tz=${encodeURIComponent(clientTimeZone())}`, {
+      method: "POST",
+    }).catch(() => null);
+    const data = (await response?.json().catch(() => null)) as WeekReviewResponse | null;
+    const next = data ?? {
+      review: null,
+      heading: null,
+      items: [],
+      generatedAt: null,
+      error: "Couldn't write the week review. Try again.",
+    };
+    if (next.review && next.heading) {
+      onReview(next);
+      setOpen(false);
+    } else {
+      setNote({ text: next.error ?? "Couldn't write the week review. Try again.", problem: true });
+    }
+    setBusy(null);
+  }
+
   return (
     <div ref={panel} className="relative">
       <button
@@ -74,6 +101,15 @@ export function AiToolsMenu({
               className="w-full rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
             >
               {busy === "generate" ? "Generating…" : "Generate priority labels"}
+            </button>
+            <button
+              type="button"
+              data-feature={FEATURE.weekReview}
+              disabled={busy !== null}
+              onClick={() => void printReview()}
+              className="w-full rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
+            >
+              {busy === "review" ? "Writing…" : "Print week review"}
             </button>
             {hasLabels ? (
               <button

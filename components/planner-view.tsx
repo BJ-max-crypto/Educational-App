@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { PriorityLabelsResponse } from "@/app/api/priority-labels/route";
+import type { WeekReviewResponse } from "@/app/api/week-review/route";
 import { AiToolsMenu } from "@/components/ai-tools-menu";
 import { AssignmentRow } from "@/components/assignment-row";
 import { CourseSelect } from "@/components/course-select";
 import { GlassCard } from "@/components/glass-card";
+import { WeekReviewPrint } from "@/components/week-review-print";
 import { clientTimeZone } from "@/lib/client-zone";
 import { plannerWhen } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
@@ -26,7 +29,21 @@ export function PlannerView() {
   const clock = now ?? new Date();
   const [labels, setLabels] = useState<Record<string, PriorityTier> | null>(null);
   const [labelError, setLabelError] = useState<string | null>(null);
+  const [review, setReview] = useState<WeekReviewResponse | null>(null);
+  const [printNonce, setPrintNonce] = useState(0);
   const hasLabels = Boolean(labels && Object.keys(labels).length);
+
+  useEffect(() => {
+    if (!review?.review) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => window.print());
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [review, printNonce]);
 
   useEffect(() => {
     let cancel = false;
@@ -45,6 +62,7 @@ export function PlannerView() {
   }, []);
 
   return (
+    <>
     <GlassCard className="mx-auto w-full max-w-[880px] px-6 py-8 sm:px-10">
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -68,6 +86,10 @@ export function PlannerView() {
           onResult={(data) => {
             setLabels(data.labels);
             setLabelError(data.error ?? null);
+          }}
+          onReview={(data) => {
+            setReview(data);
+            setPrintNonce((value) => value + 1);
           }}
         />
       </div>
@@ -99,7 +121,6 @@ export function PlannerView() {
                         course?.isUnsorted ? (
                           <CourseSelect
                             label={`Course for ${item.title}`}
-                            assignmentId={item.id}
                             value={null}
                             onSelect={(courseId) => void assignCourse([item.id], courseId)}
                           />
@@ -117,5 +138,12 @@ export function PlannerView() {
         ) : null}
       </div>
     </GlassCard>
+    {review?.review && review.heading
+      ? createPortal(
+          <WeekReviewPrint review={review.review} heading={review.heading} items={review.items} />,
+          document.body,
+        )
+      : null}
+    </>
   );
 }

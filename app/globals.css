@@ -44,3 +44,55 @@ a {
     animation: none;
   }
 }
+
+.week-review-print {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: pre-wrap;
+}
+
+@media print {
+  body * {
+    display: none !important;
+  }
+
+  .week-review-print,
+  .week-review-print * {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  .week-review-print li {
+    display: list-item !important;
+  }
+
+  .week-review-print {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    color: #14213d;
+    font-family: Inter, sans-serif;
+  }
+
+  .week-review-print h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+  }
+
+  .week-review-print h2 {
+    font-size: 16px;
+    margin: 24px 0 8px;
+  }
+
+  .week-review-body {
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+}
