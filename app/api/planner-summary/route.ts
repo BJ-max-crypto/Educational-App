@@ -6,7 +6,7 @@ import { getBusyBlocks, type CalendarState } from "@/lib/google-calendar";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidZone, localDate } from "@/lib/timezone";
 import { getUserDb } from "@/lib/user-db";
-import { buildSummaryInput, generateSummary, SummaryError } from "@/lib/weekly-summary";
+import { buildSummaryInput, generateSummary, isBulletSummary, SummaryError } from "@/lib/weekly-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +91,7 @@ async function handle(request: NextRequest, refresh: boolean) {
   const photoChanged =
     Boolean(schedule) !== usedScheduleCached ||
     Boolean(schedule && row && new Date(schedule.updatedAt).getTime() > new Date(row.generated_at).getTime());
-  const fresh = row && row.for_date === today && row.time_zone === timeZone && !photoChanged;
+  const fresh = row && row.for_date === today && row.time_zone === timeZone && !photoChanged && isBulletSummary(row.summary);
   const coolingDown = row && now - new Date(row.generated_at).getTime() < REFRESH_COOLDOWN_MS && !photoChanged;
   if (row && (fresh && !refresh || refresh && coolingDown)) {
     return NextResponse.json<PlannerSummaryResponse>({
@@ -125,7 +125,7 @@ async function handle(request: NextRequest, refresh: boolean) {
   let summary: string;
   let model = "none";
   if (input.itemCount === 0 && input.overdueCount === 0 && !schedule) {
-    summary = "Nothing is due in the next 7 days and nothing is overdue.";
+    summary = "- Nothing is due in the next 7 days and nothing is overdue.";
   } else {
     try {
       ({ summary, model } = await generateSummary(input, schedule));

@@ -78,7 +78,15 @@ export function WeeklySummaryCard() {
       ) : null}
 
       {data?.summary ? (
-        <p className="mt-3 text-[16px] leading-[1.55] text-[#14213d]">{data.summary}</p>
+        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[16px] leading-[1.45] text-[#14213d]">
+          {data.summary
+            .split(/\n+/)
+            .map((line) => line.replace(/^\s*[-*•]\s*/, "").trim())
+            .filter(Boolean)
+            .map((point, index) => (
+              <li key={`${index}-${point}`}>{point}</li>
+            ))}
+        </ul>
       ) : null}
 
       {error ? (
