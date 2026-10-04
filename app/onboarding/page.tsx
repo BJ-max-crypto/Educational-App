@@ -1,8 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Background } from "@/components/background";
 import { GlassCard } from "@/components/glass-card";
+import { OnboardingLogo } from "@/components/onboarding-logo";
 import { OnboardingQuiz } from "@/components/onboarding-quiz";
 import type { OnboardingMetadata } from "@/lib/onboarding";
 import { serverConfigProblems } from "@/lib/supabase/env";
@@ -21,7 +21,7 @@ export default async function OnboardingPage() {
     <div className="relative min-h-screen">
       <Background />
       <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col items-center justify-center px-4 py-10">
-        <Image src="/logo.png" alt="Pane" width={84} height={96} priority className="mb-6 h-24 w-auto" />
+        <OnboardingLogo />
         <div className="w-full">
           {problems.length > 0 ? (
             <GlassCard className="w-full p-7 sm:p-9">
