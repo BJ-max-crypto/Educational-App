@@ -6,15 +6,23 @@ import { GlassCard } from "@/components/glass-card";
 import { SyncStatus } from "@/components/sync-status";
 import { firstName, greeting } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
+import { cn } from "@/lib/cn";
 
 export function DashboardView() {
   const { user, courses, ready, now, overdueCount, dueThisWeekCount, unsortedAssignments } =
     useCoursework();
+  const greetingLine = ready && now ? `${greeting(now)}, ${firstName(user.name)}` : null;
 
   return (
     <div>
-      <h1 className="text-[36px] font-semibold leading-[44px] tracking-[-0.03em] text-[#14213d]">
-        {ready && now ? `${greeting(now)}, ${firstName(user.name)}` : `Hello, ${firstName(user.name)}`}
+      <h1
+        key={greetingLine ?? "greeting"}
+        className={cn(
+          "text-[36px] font-semibold leading-[44px] tracking-[-0.03em] text-[#14213d]",
+          greetingLine ? "pane-fade-in" : "opacity-0",
+        )}
+      >
+        {greetingLine ?? "\u00a0"}
       </h1>
       <p className="mt-1.5 text-[15px] text-[#5b6478]">
         {ready
