@@ -5,12 +5,50 @@
  * These rules are unlayered, so they win over Tailwind utilities below the breakpoint.
  */
 @media (width < 48rem) {
+  /* App shell. The page scrolls between a frosted top bar and a fixed tab bar. */
+  html {
+    height: 100%;
+    scroll-padding-top: calc(4rem + env(safe-area-inset-top));
+    scroll-padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  }
+
+  body {
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  label {
+    touch-action: manipulation;
+  }
+
+  /* A finger tap should not leave the desktop hover lift stuck on. */
+  a:hover,
+  button:hover,
+  [data-m~="row"]:hover {
+    transform: none;
+  }
+
+  [data-m~="tap"]:active,
+  [data-m~="nav-tab"]:active {
+    opacity: 0.72;
+  }
+
+  [data-m~="app"] {
+    min-height: 100dvh;
+  }
+
   /* Safe areas (notch, home indicator). env() is 0 where there is no inset. */
   [data-m~="notes"] {
     position: fixed;
-    top: calc(9.25rem + env(safe-area-inset-top));
+    top: calc(3.75rem + env(safe-area-inset-top));
     right: calc(1rem + env(safe-area-inset-right));
     left: auto;
+    z-index: 50;
     width: min(20rem, calc(100vw - 2rem - env(safe-area-inset-left) - env(safe-area-inset-right)));
   }
 
@@ -19,7 +57,7 @@
     top: auto;
     left: calc(0.75rem + env(safe-area-inset-left));
     right: calc(0.75rem + env(safe-area-inset-right));
-    bottom: calc(4.75rem + env(safe-area-inset-bottom));
+    bottom: calc(5.5rem + env(safe-area-inset-bottom));
     width: auto;
     max-height: min(22rem, 55dvh);
     overflow: auto;
@@ -27,45 +65,99 @@
   }
 
   [data-m~="header"] {
-    padding-top: calc(1.5rem + env(safe-area-inset-top));
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    isolation: isolate;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0;
+    height: auto;
+    padding-top: calc(0.5rem + env(safe-area-inset-top));
+    padding-bottom: 0.5rem;
     padding-left: calc(1rem + env(safe-area-inset-left));
     padding-right: calc(1rem + env(safe-area-inset-right));
+    background: transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.72);
+  }
+
+  /* Blur lives on a layer behind the avatar. A filter on the header itself would
+     become the containing block for the fixed tab bar and pin it under the avatar. */
+  [data-m~="header"]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: rgba(238, 243, 251, 0.82);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
   }
 
   [data-m~="main"] {
+    padding-top: 0.25rem;
     padding-left: calc(1rem + env(safe-area-inset-left));
     padding-right: calc(1rem + env(safe-area-inset-right));
-    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
   }
 
   [data-m~="sheet"] {
     left: calc(0.75rem + env(safe-area-inset-left));
     right: calc(0.75rem + env(safe-area-inset-right));
-    bottom: calc(0.75rem + env(safe-area-inset-bottom));
-    max-height: 70dvh;
+    bottom: calc(5.25rem + env(safe-area-inset-bottom));
+    max-height: min(70dvh, calc(100dvh - 9rem));
   }
 
-  /* Pill nav: full width with equal, 44px-tall tabs so nothing wraps or crowds. */
+  [data-m~="dialog"] {
+    align-items: flex-end;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  /* Tab bar pinned to the bottom, like an app. The pill chrome stays on desktop. */
   [data-m~="nav-wrap"] {
+    position: fixed;
+    z-index: 40;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
     display: flex;
     width: 100%;
-    justify-content: center;
+    max-width: none;
+    justify-content: stretch;
+    margin: 0;
+    padding: 0.25rem 0.5rem calc(0.25rem + env(safe-area-inset-bottom));
+    background: rgba(238, 243, 251, 0.92);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(255, 255, 255, 0.95);
+    box-shadow: 0 -8px 24px rgba(51, 64, 128, 0.06);
   }
 
   [data-m~="nav"] {
     width: 100%;
-    max-width: 26rem;
+    max-width: none;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    padding: 0;
+    gap: 0.25rem;
   }
 
   [data-m~="nav-tab"] {
     flex: 1 1 0;
     min-width: 0;
-    min-height: 44px;
+    min-height: 48px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding-left: 0.5rem;
     padding-right: 0.5rem;
+    border-radius: 12px;
+    transform: none;
   }
 
   /* Touch targets. `tap` grows the control itself; `hit` keeps the look and adds an
@@ -157,10 +249,3 @@
   }
 }
 
-@media (40rem <= width < 48rem) {
-  [data-m~="sheet"] {
-    left: auto;
-    right: calc(1.5rem + env(safe-area-inset-right));
-    bottom: calc(1.5rem + env(safe-area-inset-bottom));
-  }
-}

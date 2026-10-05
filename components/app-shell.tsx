@@ -52,7 +52,7 @@ export function AppShell({
     >
       <TimeZoneReporter known={knownTimeZone} />
       <Background />
-      <div className="relative mx-auto min-h-screen w-full max-w-[1440px]">
+      <div data-m="app" className="relative mx-auto min-h-screen w-full max-w-[1440px]">
         <header data-m="header" className="flex flex-col items-center gap-4 px-4 pt-6 md:h-[108px] md:flex-row md:px-[84px] md:pt-7">
           <div className="flex w-full items-center justify-end md:contents">
             <div className="relative md:ml-auto">

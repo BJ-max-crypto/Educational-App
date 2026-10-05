@@ -58,6 +58,7 @@ export function LeaveClassButton({ courseId, courseName }: { courseId: string; c
       </button>
       {open ? (
         <div
+          data-m="dialog"
           className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[#14213d]/35 p-4 sm:items-center"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !pending) setOpen(false);
