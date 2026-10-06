@@ -10,6 +10,7 @@ import { GoogleCalendarConnect } from "@/components/google-calendar-connect";
 import { SyncButton, useSyncLabel } from "@/components/sync-status";
 import { initials } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
+import { AppearanceSetting } from "@/components/appearance-setting";
 import { AssignmentAlertSetting } from "@/components/assignment-alerts";
 import { SchoolInvite } from "@/components/school-invite";
 
@@ -173,7 +174,7 @@ export function ProfileView() {
               </span>
             </div>
             <GoogleCalendarConnect />
-            <InfoRow label="Appearance" value="Light" />
+            <AppearanceSetting />
           </div>
         </section>
       </GlassCard>

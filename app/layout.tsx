@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { ThemeSync } from "@/components/appearance-setting";
 import { ServiceWorkerRegistration } from "@/components/service-worker";
+import { themeBootScript } from "@/lib/theme";
 import "./globals.css";
 import "./mobile.css";
 
@@ -30,8 +32,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} h-full`}>
+    <html lang="en" className={`${inter.variable} h-full`} suppressHydrationWarning>
       <body className="min-h-full font-sans antialiased">
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <ThemeSync />
         <ClerkProvider
           appearance={{
             variables: {

@@ -202,6 +202,35 @@
     width: auto;
   }
 
+  html[data-theme="light"] [data-m~="loading"] {
+    background: #ffffff;
+  }
+
+  html[data-theme="dark"] [data-m~="loading"] {
+    background: #101218;
+  }
+
+  html[data-theme="dark"] [data-m~="nav-wrap"] {
+    background: rgba(16, 18, 24, 0.88);
+    border-top-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  html[data-theme="dark"] [data-m~="nav-tab"],
+  html[data-theme="dark"] [data-m~="nav-tab"][aria-current="page"],
+  html[data-theme="dark"] [data-m~="nav-tab"] * {
+    color: #c8ccd6;
+  }
+
+  html[data-theme="dark"] [data-m~="nav-tab"] {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  html[data-theme="dark"] [data-m~="nav-tab"][aria-current="page"] {
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+  }
+
   /* Touch targets. `tap` grows the control itself; `hit` keeps the look and adds an
      invisible 44x44 hit area around small controls such as checkboxes and text links. */
   [data-m~="tap"] {
