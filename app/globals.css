@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #14213d;
+  --muted: #5b6478;
+  --background: #eef3fb;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-background: var(--background);
+}
+
+body {
+  background: var(--background);
+  color: var(--ink);
+  font-family: var(--font-inter), Inter, sans-serif;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes pane-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pane-step-in {
+  animation: pane-step-in 320ms ease-out;
+}
+
+@keyframes pane-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pane-fade-in {
+  animation: pane-fade-in 700ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane-step-in,
+  .pane-fade-in {
+    animation: none;
+  }
+}
+
+.week-review-print {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: pre-wrap;
+}
+
+/*
+ * Appearance. Colorful is the original look and stays the default, so it has no override.
+ * Light is a white page. Dark keeps the frosted panels and turns text and icons light grey.
+ */
+html[data-theme="light"] body,
+html[data-theme="light"] [data-theme-bg] {
+  background: #ffffff;
+}
+
+html[data-theme="light"] [data-theme-blob],
+html[data-theme="dark"] [data-theme-blob] {
+  display: none;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #c8ccd6;
+  --muted: #c8ccd6;
+  --background: #101218;
+}
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] [data-theme-bg] {
+  background: #101218;
+}
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] body * {
+  color: #c8ccd6;
+}
+
+html[data-theme="dark"] .text-transparent,
+html[data-theme="dark"] .text-transparent * {
+  color: transparent;
+}
+
+html[data-theme="dark"] ::placeholder {
+  color: #c8ccd6;
+}
+
+html[data-theme="dark"] :is(
+  .bg-white\/45,
+  .bg-white\/50,
+  .bg-white\/55,
+  .bg-white\/60,
+  .bg-white\/70,
+  .bg-white\/75,
+  .bg-white\/80,
+  .bg-white\/85,
+  .bg-\[\#e7eefe\]\/90,
+  .bg-\[\#eef3fb\],
+  .bg-\[\#eef3ff\]\/95
+) {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+html[data-theme="dark"] :is(.bg-white, .bg-white\/90, .bg-white\/95) {
+  background-color: rgba(22, 26, 38, 0.9);
+  border-color: rgba(255, 255, 255, 0.18);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+html[data-theme="dark"] [data-glass="solid"] {
+  background: rgba(18, 20, 30, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* The page field uses the same fill class as small chips. Keep the field solid. */
+html[data-theme="dark"] [data-theme-bg] {
+  background: #101218;
+  border-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-theme="dark"] [data-appearance="selected"] {
+  background-color: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+html[data-theme="dark"] [data-m="avatar"] a {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
+html:not([data-theme="dark"]) [data-m~="nav-icon"],
+html:not([data-theme="dark"]) [data-m~="nav-icon"] * {
+  color: inherit;
+}
+
+@media print {
+  body * {
+    display: none !important;
+  }
+
+  .week-review-print,
+  .week-review-print * {
+    display: block !important;
+    visibility: visible !important;
+    color: #14213d !important;
+  }
+
+  .week-review-print li {
+    display: list-item !important;
+  }
+
+  .week-review-print {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    color: #14213d;
+    font-family: Inter, sans-serif;
+  }
+
+  .week-review-print h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+  }
+
+  .week-review-print h2 {
+    font-size: 16px;
+    margin: 24px 0 8px;
+  }
+
+  .week-review-body {
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+}

@@ -1,0 +1,315 @@
+/*
+ * Phone-only styles. Everything here sits inside one query that is the exact complement of
+ * Tailwind's `md:` breakpoint (48rem), so at 768px and wider none of it applies.
+ * Components opt in with `data-m` tokens; the attributes have no styling of their own.
+ * These rules are unlayered, so they win over Tailwind utilities below the breakpoint.
+ */
+@media (width < 48rem) {
+  /* App shell. Content scrolls. The profile icon and the icon tab bar stay put. */
+  html {
+    height: 100%;
+    scroll-padding-top: calc(4.5rem + env(safe-area-inset-top));
+    scroll-padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  }
+
+  body {
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  label {
+    touch-action: manipulation;
+  }
+
+  /* A finger tap should not leave the desktop hover lift stuck on. */
+  a:hover,
+  button:hover,
+  [data-m~="row"]:hover {
+    transform: none;
+  }
+
+  [data-m~="tap"]:active,
+  [data-m~="nav-tab"]:active {
+    opacity: 0.72;
+  }
+
+  [data-m~="app"] {
+    min-height: 100dvh;
+  }
+
+  /* Safe areas (notch, home indicator). env() is 0 where there is no inset. */
+  [data-m~="notes"] {
+    position: fixed;
+    top: calc(3.75rem + env(safe-area-inset-top));
+    right: calc(1rem + env(safe-area-inset-right));
+    left: auto;
+    z-index: 50;
+    width: min(20rem, calc(100vw - 2rem - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  }
+
+  [data-m~="ai-pop"] {
+    position: fixed;
+    top: auto;
+    left: calc(0.75rem + env(safe-area-inset-left));
+    right: calc(0.75rem + env(safe-area-inset-right));
+    bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    width: auto;
+    max-height: min(22rem, 55dvh);
+    overflow: auto;
+    z-index: 40;
+  }
+
+  /* Only the profile icon stays on screen. No bar travels with the page. */
+  [data-m~="header"] {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 30;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0;
+    height: auto;
+    padding-top: calc(0.5rem + env(safe-area-inset-top));
+    padding-bottom: 0;
+    padding-left: calc(1rem + env(safe-area-inset-left));
+    padding-right: calc(1rem + env(safe-area-inset-right));
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    pointer-events: none;
+  }
+
+  [data-m~="header"]::before {
+    content: none;
+  }
+
+  [data-m~="avatar"],
+  [data-m~="nav-wrap"] {
+    pointer-events: auto;
+  }
+
+  [data-m~="main"] {
+    padding-top: calc(4.25rem + env(safe-area-inset-top));
+    padding-left: calc(1rem + env(safe-area-inset-left));
+    padding-right: calc(1rem + env(safe-area-inset-right));
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  [data-m~="sheet"] {
+    left: calc(0.75rem + env(safe-area-inset-left));
+    right: calc(0.75rem + env(safe-area-inset-right));
+    bottom: calc(5.25rem + env(safe-area-inset-bottom));
+    max-height: min(70dvh, calc(100dvh - 9rem));
+  }
+
+  [data-m~="dialog"] {
+    align-items: flex-end;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  /* Tab bar pinned to the bottom, like an app. The pill chrome stays on desktop. */
+  [data-m~="nav-wrap"] {
+    position: fixed;
+    z-index: 40;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    width: 100%;
+    max-width: none;
+    justify-content: stretch;
+    margin: 0;
+    padding: 0.25rem 0.5rem calc(0.25rem + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.92);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(255, 255, 255, 0.95);
+    box-shadow: 0 -8px 24px rgba(51, 64, 128, 0.06);
+  }
+
+  [data-m~="nav"] {
+    width: 100%;
+    max-width: none;
+    align-items: center;
+    justify-content: space-evenly;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    padding: 0.15rem 0;
+    gap: 0;
+  }
+
+  [data-m~="nav-icon"] {
+    display: flex;
+  }
+
+  [data-m~="nav-label"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  [data-m~="nav-tab"] {
+    position: relative;
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    min-height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 999px;
+    background: #e7eef8;
+    box-shadow: 0 4px 12px rgba(51, 64, 128, 0.1);
+    transform: none;
+  }
+
+  [data-m~="nav-tab"][aria-current="page"] {
+    background: #fff;
+    color: #14213d;
+    box-shadow: 0 6px 16px rgba(51, 64, 128, 0.16);
+  }
+
+  /* Full-screen logo while the phone shell loads. */
+  [data-m~="loading"] {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    min-height: 100dvh;
+    background: #eef3fb;
+  }
+
+  [data-m~="loading"] img {
+    height: 168px;
+    width: auto;
+  }
+
+  html[data-theme="light"] [data-m~="loading"] {
+    background: #ffffff;
+  }
+
+  html[data-theme="dark"] [data-m~="loading"] {
+    background: #101218;
+  }
+
+  html[data-theme="dark"] [data-m~="nav-wrap"] {
+    background: rgba(16, 18, 24, 0.88);
+    border-top-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  html[data-theme="dark"] [data-m~="nav-tab"],
+  html[data-theme="dark"] [data-m~="nav-tab"][aria-current="page"],
+  html[data-theme="dark"] [data-m~="nav-tab"] * {
+    color: #c8ccd6;
+  }
+
+  html[data-theme="dark"] [data-m~="nav-tab"] {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  html[data-theme="dark"] [data-m~="nav-tab"][aria-current="page"] {
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+  }
+
+  /* Touch targets. `tap` grows the control itself; `hit` keeps the look and adds an
+     invisible 44x44 hit area around small controls such as checkboxes and text links. */
+  [data-m~="tap"] {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  [data-m~="hit"] {
+    position: relative;
+  }
+
+  [data-m~="hit"]::after {
+    content: "";
+    position: absolute;
+    top: min(0px, calc((100% - 44px) / 2));
+    bottom: min(0px, calc((100% - 44px) / 2));
+    left: min(0px, calc((100% - 44px) / 2));
+    right: min(0px, calc((100% - 44px) / 2));
+  }
+
+  [data-m~="check-wrap"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -14px;
+    flex-shrink: 0;
+  }
+
+  /* iOS zooms the page when a field under 16px gets focus. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Single column that can shrink below its content, so long titles truncate
+     instead of widening the page. */
+  [data-m~="grid1"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-m~="wrap"] {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+  }
+
+  [data-m~="break"] {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Assignment rows: the chip and course picker drop under the title when they don't fit. */
+  [data-m~="row"] {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  [data-m~="row-trail"] {
+    margin-left: auto;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 0.5rem;
+  }
+
+  [data-m~="row-title"] {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+
