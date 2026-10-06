@@ -4,7 +4,7 @@ import { Background } from "@/components/background";
 /** Centered mark shown while the app shell is loading. */
 export function LoadingMark() {
   return (
-    <div className="relative grid min-h-screen place-items-center">
+    <div data-m="loading" className="relative grid min-h-screen place-items-center">
       <Background />
       <Image
         src="/logo.png"

@@ -5,10 +5,10 @@
  * These rules are unlayered, so they win over Tailwind utilities below the breakpoint.
  */
 @media (width < 48rem) {
-  /* App shell. The page scrolls between a frosted top bar and a fixed tab bar. */
+  /* App shell. Content scrolls. The profile icon and the icon tab bar stay put. */
   html {
     height: 100%;
-    scroll-padding-top: calc(4rem + env(safe-area-inset-top));
+    scroll-padding-top: calc(4.5rem + env(safe-area-inset-top));
     scroll-padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
   }
 
@@ -64,39 +64,39 @@
     z-index: 40;
   }
 
+  /* Only the profile icon stays on screen. No bar travels with the page. */
   [data-m~="header"] {
-    position: sticky;
+    position: fixed;
     top: 0;
+    right: 0;
+    left: 0;
     z-index: 30;
-    isolation: isolate;
     flex-direction: row;
     align-items: center;
     justify-content: flex-end;
     gap: 0;
     height: auto;
     padding-top: calc(0.5rem + env(safe-area-inset-top));
-    padding-bottom: 0.5rem;
+    padding-bottom: 0;
     padding-left: calc(1rem + env(safe-area-inset-left));
     padding-right: calc(1rem + env(safe-area-inset-right));
     background: transparent;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.72);
+    border: 0;
+    box-shadow: none;
+    pointer-events: none;
   }
 
-  /* Blur lives on a layer behind the avatar. A filter on the header itself would
-     become the containing block for the fixed tab bar and pin it under the avatar. */
   [data-m~="header"]::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: rgba(238, 243, 251, 0.82);
-    -webkit-backdrop-filter: blur(18px);
-    backdrop-filter: blur(18px);
+    content: none;
+  }
+
+  [data-m~="avatar"],
+  [data-m~="nav-wrap"] {
+    pointer-events: auto;
   }
 
   [data-m~="main"] {
-    padding-top: 0.25rem;
+    padding-top: calc(4.25rem + env(safe-area-inset-top));
     padding-left: calc(1rem + env(safe-area-inset-left));
     padding-right: calc(1rem + env(safe-area-inset-right));
     padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
@@ -138,26 +138,68 @@
   [data-m~="nav"] {
     width: 100%;
     max-width: none;
+    align-items: center;
+    justify-content: space-evenly;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
     backdrop-filter: none;
+    padding: 0.15rem 0;
+    gap: 0;
+  }
+
+  [data-m~="nav-icon"] {
+    display: flex;
+  }
+
+  [data-m~="nav-label"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
     padding: 0;
-    gap: 0.25rem;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   [data-m~="nav-tab"] {
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 48px;
+    position: relative;
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    min-height: 52px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    border-radius: 12px;
+    padding: 0;
+    border-radius: 999px;
+    background: #e7eef8;
+    box-shadow: 0 4px 12px rgba(51, 64, 128, 0.1);
     transform: none;
+  }
+
+  [data-m~="nav-tab"][aria-current="page"] {
+    background: #fff;
+    color: #14213d;
+    box-shadow: 0 6px 16px rgba(51, 64, 128, 0.16);
+  }
+
+  /* Full-screen logo while the phone shell loads. */
+  [data-m~="loading"] {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    min-height: 100dvh;
+    background: #eef3fb;
+  }
+
+  [data-m~="loading"] img {
+    height: 168px;
+    width: auto;
   }
 
   /* Touch targets. `tap` grows the control itself; `hit` keeps the look and adds an
@@ -241,11 +283,4 @@
   }
 }
 
-@media (width < 22.5rem) {
-  [data-m~="nav-tab"] {
-    font-size: 14px;
-    padding-left: 0.25rem;
-    padding-right: 0.25rem;
-  }
-}
 
