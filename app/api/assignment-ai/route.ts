@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { AI_MIGRATION, AiError, askClaude, parseJsonObject } from "@/lib/ai";
+import { isPlusWall, PLUS_WALL, withAiCredit } from "@/lib/ai-credits";
 import { cacheIsFresh, readAiNote, writeAiNote } from "@/lib/ai-cache";
 import { dueDayOffset } from "@/lib/priority-tier";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -109,11 +110,13 @@ export async function POST(request: NextRequest) {
     const facts = [`Title: ${title}`, `Course: ${course?.name ?? "Unsorted"}`, `Due: ${due}`, description ? `Description: ${description}` : ""]
       .filter(Boolean)
       .join("\n");
-    const answer = await askClaude({
-      system: action === "breakdown" ? BREAKDOWN : REASON,
-      user: facts,
-      maxTokens: action === "breakdown" ? 500 : 320,
-    });
+    const answer = await withAiCredit(db.profileId, () =>
+      askClaude({
+        system: action === "breakdown" ? BREAKDOWN : REASON,
+        user: facts,
+        maxTokens: action === "breakdown" ? 500 : 320,
+      }),
+    );
     const json = parseJsonObject(answer.text);
     const steps = action === "breakdown" ? asSteps(json) : null;
     const text = action === "reason" ? asText(json) : null;
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
     return reply({ action, steps, text, generatedAt });
   } catch (error) {
     console.error("assignment ai failed", error);
-    const message = error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't do that. Try again.";
+    const message = isPlusWall(error) ? PLUS_WALL : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't do that. Try again.";
     return reply({ action: null, steps: null, text: null, generatedAt: null, error: message });
   }
 }

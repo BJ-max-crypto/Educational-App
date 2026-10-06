@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { AI_MIGRATION, AiError, askClaude, parseJsonObject } from "@/lib/ai";
+import { isPlusWall, PLUS_WALL, withAiCredit } from "@/lib/ai-credits";
 import { cacheIsFresh, readAiNote, writeAiNote } from "@/lib/ai-cache";
 import { coerceTier, dueDayOffset, type PriorityTier } from "@/lib/priority-tier";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -84,11 +85,13 @@ async function generate(profileId: string, now: number, timeZone: string, today:
   let model = "none";
   if (items.length) {
     const list = items.map((item) => `${item.id} | ${item.course} | ${item.due} | ${item.title}`).join("\n");
-    const answer = await askClaude({
-      system: SYSTEM,
-      user: `Today is ${today}. Label every item.\n${list}`,
-      maxTokens: 900,
-    });
+    const answer = await withAiCredit(profileId, () =>
+      askClaude({
+        system: SYSTEM,
+        user: `Today is ${today}. Label every item.\n${list}`,
+        maxTokens: 900,
+      }),
+    );
     model = answer.model;
     const json = parseJsonObject(answer.text);
     const rows = Array.isArray(json.labels) ? json.labels : [];
@@ -138,7 +141,7 @@ async function handle(request: NextRequest, refresh: boolean) {
     return NextResponse.json<PriorityLabelsResponse>(created);
   } catch (error) {
     console.error("priority labels failed", error);
-    const message = error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't label priorities. Try again.";
+    const message = isPlusWall(error) ? PLUS_WALL : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't label priorities. Try again.";
     return NextResponse.json<PriorityLabelsResponse>({
       labels: cached && cached.forDate === today ? asLabels(cached.payload) : null,
       generatedAt: cached && cached.forDate === today ? cached.generatedAt : null,

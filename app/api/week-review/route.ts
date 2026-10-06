@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { AI_MIGRATION, AiError, askClaude } from "@/lib/ai";
+import { isPlusWall, PLUS_WALL, withAiCredit } from "@/lib/ai-credits";
 import { cacheIsFresh, readAiNote, writeAiNote } from "@/lib/ai-cache";
 import { loadCoursework } from "@/lib/coursework-data";
 import { getBusyBlocks, type CalendarState } from "@/lib/google-calendar";
@@ -110,11 +111,13 @@ export async function POST(request: NextRequest) {
       .sort((a, b) => a.offset - b.offset)
       .slice(0, 40)
       .map(({ title, course, due }) => ({ title, course, due }));
-    const answer = await askClaude({
-      system: SYSTEM,
-      user: input.text,
-      maxTokens: 900,
-    });
+    const answer = await withAiCredit(db.profileId, () =>
+      askClaude({
+        system: SYSTEM,
+        user: input.text,
+        maxTokens: 900,
+      }),
+    );
     const review = cleanReview(answer.text);
     if (!review) throw new AiError("The AI service returned an empty answer. Try again.");
     const heading = new Intl.DateTimeFormat("en-US", { timeZone, month: "long", day: "numeric", year: "numeric" }).format(new Date(now));
@@ -129,7 +132,7 @@ export async function POST(request: NextRequest) {
     return reply({ review, heading, items, generatedAt });
   } catch (error) {
     console.error("week review failed", error);
-    const message = error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't write the week review. Try again.";
+    const message = isPlusWall(error) ? PLUS_WALL : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't write the week review. Try again.";
     return empty(message);
   }
 }

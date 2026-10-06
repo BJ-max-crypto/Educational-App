@@ -6,6 +6,7 @@ import { getBusyBlocks, type CalendarState } from "@/lib/google-calendar";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidZone, localDate } from "@/lib/timezone";
 import { getUserDb } from "@/lib/user-db";
+import { isPlusWall, PLUS_WALL, withAiCredit } from "@/lib/ai-credits";
 import { buildSummaryInput, generateSummary, isBulletSummary, SummaryError } from "@/lib/weekly-summary";
 
 export const dynamic = "force-dynamic";
@@ -128,7 +129,7 @@ async function handle(request: NextRequest, refresh: boolean) {
     summary = "- Nothing is due in the next 7 days and nothing is overdue.";
   } else {
     try {
-      ({ summary, model } = await generateSummary(input, schedule));
+      ({ summary, model } = await withAiCredit(db.profileId, () => generateSummary(input, schedule)));
     } catch (error) {
       console.error("weekly summary generation failed", error);
       return NextResponse.json<PlannerSummaryResponse>({
@@ -137,9 +138,11 @@ async function handle(request: NextRequest, refresh: boolean) {
         usedCalendar: row?.used_calendar ?? false,
         usedSchedule: usedScheduleCached,
         calendar: calendarInfo(calendar),
-        error: `Couldn't write this week's summary: ${
-          error instanceof SummaryError ? error.message : "something went wrong. Try Refresh."
-        } Your list below is up to date.`,
+        error: isPlusWall(error)
+          ? PLUS_WALL
+          : `Couldn't write this week's summary: ${
+              error instanceof SummaryError ? error.message : "something went wrong. Try Refresh."
+            } Your list below is up to date.`,
       });
     }
   }
@@ -172,8 +175,15 @@ async function safely(request: NextRequest, refresh: boolean) {
   } catch (error) {
     console.error("planner summary failed", error);
     return NextResponse.json(
-      { summary: null, generatedAt: null, usedCalendar: false, usedSchedule: false, calendar: { status: "error" }, error: "Couldn't load this week's summary." },
-      { status: 500 },
+      {
+        summary: null,
+        generatedAt: null,
+        usedCalendar: false,
+        usedSchedule: false,
+        calendar: { status: "error" },
+        error: isPlusWall(error) ? PLUS_WALL : "Couldn't load this week's summary.",
+      },
+      { status: isPlusWall(error) ? 200 : 500 },
     );
   }
 }

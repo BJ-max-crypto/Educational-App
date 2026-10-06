@@ -10,6 +10,7 @@ import { GoogleCalendarConnect } from "@/components/google-calendar-connect";
 import { SyncButton, useSyncLabel } from "@/components/sync-status";
 import { initials } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
+import { AssignmentAlertSetting } from "@/components/assignment-alerts";
 import { SchoolInvite } from "@/components/school-invite";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -159,7 +160,7 @@ export function ProfileView() {
             PREFERENCES
           </h2>
           <div className="mt-2">
-            <InfoRow label="Notifications" value="On" />
+            <AssignmentAlertSetting />
             <div className="flex items-center justify-between gap-4 border-b border-white/70 py-2.5 last:border-b-0">
               <span className="text-[14px] text-[#5b6478]">Calendar sync</span>
               <span className="flex items-center gap-3">

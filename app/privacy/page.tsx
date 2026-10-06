@@ -24,7 +24,10 @@ export default function PrivacyPage() {
             <p>Other students see you only after you both approve a connection.</p>
             <p>
               Assignment titles are sent to the AI service only when you ask for a breakdown, a priority estimate, a
-              course suggestion, or a week review. A priority letter is Pane&apos;s estimate, not a grade.
+              course suggestion, a week review, or a weekly summary. A priority letter is Pane&apos;s estimate, not a
+              grade. A credit cap applies only to accounts listed for it in the database. When that cap is used up,
+              Pane says Get Pane Plus. If you turn on assignment alerts, Pane can show a notification on your device
+              with that assignment&apos;s name.
             </p>
           </div>
         </GlassCard>

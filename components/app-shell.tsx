@@ -2,6 +2,7 @@
 
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
+import { AssignmentAlerts } from "@/components/assignment-alerts";
 import { Background } from "@/components/background";
 import { NotificationsBadge } from "@/components/notifications-bar";
 import { SaveErrorBanner } from "@/components/sync-status";
@@ -51,6 +52,7 @@ export function AppShell({
       classmatesByCourseId={classmatesByCourseId}
     >
       <TimeZoneReporter known={knownTimeZone} />
+      <AssignmentAlerts />
       <Background />
       <div data-m="app" className="relative mx-auto min-h-screen w-full max-w-[1440px]">
         <header data-m="header" className="flex flex-col items-center gap-4 px-4 pt-6 md:h-[108px] md:flex-row md:px-[84px] md:pt-7">

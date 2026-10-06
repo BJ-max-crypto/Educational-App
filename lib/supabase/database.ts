@@ -379,6 +379,101 @@ export type Database = {
         };
         Relationships: [];
       };
+      plus_limits: {
+        Row: {
+          user_id: string;
+          active: boolean;
+          credit_cap: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          active?: boolean;
+          credit_cap?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          credit_cap?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_credit_settings: {
+        Row: {
+          singleton: boolean;
+          credit_cap: number;
+        };
+        Insert: {
+          singleton?: boolean;
+          credit_cap: number;
+        };
+        Update: {
+          credit_cap?: number;
+        };
+        Relationships: [];
+      };
+      ai_credit_use: {
+        Row: {
+          user_id: string;
+          used: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          used?: number;
+          updated_at?: string;
+        };
+        Update: {
+          used?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          time_zone: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          time_zone: string;
+        };
+        Update: {
+          user_id?: string;
+          p256dh?: string;
+          auth?: string;
+          time_zone?: string;
+        };
+        Relationships: [];
+      };
+      assignment_pushes: {
+        Row: {
+          user_id: string;
+          assignment_id: string;
+          kind: "overdue" | "today" | "tomorrow";
+          pushed_on: string;
+        };
+        Insert: {
+          user_id: string;
+          assignment_id: string;
+          kind: "overdue" | "today" | "tomorrow";
+          pushed_on: string;
+        };
+        Update: {
+          pushed_on?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
