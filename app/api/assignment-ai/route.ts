@@ -129,14 +129,18 @@ export async function POST(request: NextRequest) {
     const { answer, steps, text } = produced.value;
     const generatedAt = new Date(now).toISOString();
     const payload: Record<string, unknown> = action === "breakdown" ? { steps } : { text };
-    await writeAiNote(db.profileId, action, assignmentId, {
-      forDate: today,
-      timeZone,
-      payload,
-      model: answer.model,
-      generatedAt,
-    });
-    await produced.commit();
+    try {
+      await writeAiNote(db.profileId, action, assignmentId, {
+        forDate: today,
+        timeZone,
+        payload,
+        model: answer.model,
+        generatedAt,
+      });
+    } catch (error) {
+      await produced.release();
+      throw error;
+    }
     return reply({ action, steps, text, generatedAt });
   } catch (error) {
     console.error("assignment ai failed", error);

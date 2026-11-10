@@ -429,6 +429,29 @@ export type Database = {
         };
         Relationships: [];
       };
+      entitlements: {
+        Row: {
+          user_id: string;
+          lookup_key: string;
+          active: boolean;
+          provider_customer_id: string | null;
+          synced_at: string;
+        };
+        Insert: {
+          user_id: string;
+          lookup_key: string;
+          active?: boolean;
+          provider_customer_id?: string | null;
+          synced_at?: string;
+        };
+        Update: {
+          lookup_key?: string;
+          active?: boolean;
+          provider_customer_id?: string | null;
+          synced_at?: string;
+        };
+        Relationships: [];
+      };
       billing_events: {
         Row: { id: string; type: string; received_at: string };
         Insert: { id: string; type: string; received_at?: string };
@@ -544,7 +567,16 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      reserve_ai_answer: {
+        Args: { p_user_id: string; p_period: string; p_limit: number };
+        Returns: number;
+      };
+      release_ai_answer: {
+        Args: { p_user_id: string; p_period: string };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

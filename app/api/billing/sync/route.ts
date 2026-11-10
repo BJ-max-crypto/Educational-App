@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { StripeConfigError } from "@/lib/stripe-server";
-import { loadBilling, loadSubscriptionRows, syncStripeSubscription } from "@/lib/subscription";
+import { loadBilling, loadSubscriptionRows, refreshEntitlement, syncStripeSubscription } from "@/lib/subscription";
 import { getUserDb } from "@/lib/user-db";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,7 @@ export async function POST() {
     for (const id of ids) {
       await syncStripeSubscription(id, db.profileId);
     }
+    await refreshEntitlement(db.profileId);
     const billing = await loadBilling(db.profileId);
     return NextResponse.json({ billing });
   } catch (error) {

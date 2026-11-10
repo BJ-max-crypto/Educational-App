@@ -3,6 +3,7 @@ import "server-only";
 import { PLANS, type BillingInterval } from "@/lib/billing-config";
 
 const STRIPE_VERSION = "2024-11-20.acacia";
+const ENTITLEMENT_VERSION = "2026-10-28.endive";
 
 export class StripeConfigError extends Error {
   constructor(message: string) {
@@ -34,12 +35,12 @@ export function appOrigin(request: Request) {
 
 type StripeErrorBody = { error?: { message?: string } };
 
-async function stripeFetch(path: string, init?: { method?: string; body?: URLSearchParams }) {
+async function stripeFetch(path: string, init?: { method?: string; body?: URLSearchParams; version?: string }) {
   const response = await fetch(`https://api.stripe.com${path}`, {
     method: init?.method ?? "GET",
     headers: {
       Authorization: `Bearer ${stripeSecret()}`,
-      "Stripe-Version": STRIPE_VERSION,
+      "Stripe-Version": init?.version ?? STRIPE_VERSION,
       ...(init?.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
     },
     body: init?.body,
@@ -157,4 +158,32 @@ export async function retrieveSubscription(subscriptionId: string) {
 export function stripeId(value: string | { id: string } | null | undefined) {
   if (!value) return null;
   return typeof value === "string" ? value : value.id;
+}
+
+export async function retrieveCustomer(customerId: string) {
+  return (await stripeFetch(`/v1/customers/${encodeURIComponent(customerId)}`)) as {
+    id: string;
+    metadata?: Record<string, string>;
+  };
+}
+
+/** Lookup keys for the features Stripe currently grants this customer. */
+export async function listActiveLookupKeys(customerId: string) {
+  const keys: string[] = [];
+  let startingAfter = "";
+  for (let page = 0; page < 5; page += 1) {
+    const params = new URLSearchParams({ customer: customerId, limit: "100" });
+    if (startingAfter) params.set("starting_after", startingAfter);
+    const payload = await stripeFetch(`/v1/entitlements/active_entitlements?${params}`, { version: ENTITLEMENT_VERSION });
+    const data = Array.isArray(payload.data) ? payload.data : [];
+    for (const item of data) {
+      if (item && typeof item === "object" && "lookup_key" in item && typeof item.lookup_key === "string") keys.push(item.lookup_key);
+    }
+    const hasMore = payload.has_more === true;
+    const last = data.at(-1);
+    const next = last && typeof last === "object" && "id" in last && typeof last.id === "string" ? last.id : "";
+    if (!hasMore || !next) break;
+    startingAfter = next;
+  }
+  return keys;
 }

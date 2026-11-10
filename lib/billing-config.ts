@@ -6,6 +6,9 @@
 
 export const PRO_PRODUCT_ID = "pane_pro";
 
+/** Stripe Entitlements lookup key. Monthly and annual prices share this one feature. */
+export const PANE_PRO_ENTITLEMENT = "pane_pro_ai";
+
 export const PLANS = {
   month: {
     id: "pro_monthly",
@@ -81,7 +84,8 @@ export type AiAccessCode = "pro_required" | "limit_reached" | "billing_setup";
 export const AI_ACCESS_MESSAGE: Record<AiAccessCode, string> = {
   pro_required: "This is part of Pane Pro.",
   limit_reached: "You've used this month's Pane Pro AI answers.",
-  billing_setup: "Pane Pro needs a database update. Run supabase/migrations/0012_subscriptions.sql.",
+  billing_setup:
+    "Pane Pro needs a database update. Run supabase/migrations/0012_subscriptions.sql and supabase/migrations/0013_entitlements.sql.",
 };
 
 export type BillingSummary = {
@@ -129,9 +133,45 @@ export function usagePeriod(now = new Date()) {
   return `${now.getUTCFullYear()}-${month}-01`;
 }
 
+export type EntitlementSummary = {
+  customerId: string | null;
+  lookupKeys: string[];
+  hasMore: boolean;
+};
+
+function customerIdOf(value: unknown) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "id" in value && typeof value.id === "string") return value.id;
+  return null;
+}
+
+/** Reads an entitlements.active_entitlement_summary webhook object. */
+export function readEntitlementSummary(object: Record<string, unknown> | undefined): EntitlementSummary {
+  const entitlements = object?.entitlements;
+  const list = entitlements && typeof entitlements === "object" ? entitlements : null;
+  const data = list && "data" in list && Array.isArray(list.data) ? list.data : [];
+  const lookupKeys = data.flatMap((item) => {
+    if (!item || typeof item !== "object" || !("lookup_key" in item)) return [];
+    return typeof item.lookup_key === "string" ? [item.lookup_key] : [];
+  });
+  return {
+    customerId: customerIdOf(object?.customer),
+    lookupKeys,
+    hasMore: Boolean(list && "has_more" in list && list.has_more),
+  };
+}
+
+export function grantsPanePro(lookupKeys: readonly string[]) {
+  return lookupKeys.includes(PANE_PRO_ENTITLEMENT);
+}
+
 const ENTITLED = new Set(["active", "trialing"]);
 
-/** Pro access from a stored subscription row. Past-due, unpaid, and ended subscriptions are Free. */
+/**
+ * Whether a stored subscription row is still inside a paid period.
+ * This chooses which row to show on Profile. It does not grant Pane Pro.
+ * AI access follows the Stripe entitlement `pane_pro_ai`.
+ */
 export function subscriptionEntitled(
   row: { status: string; current_period_end: string | null; cancel_at_period_end: boolean } | null,
   now = Date.now(),

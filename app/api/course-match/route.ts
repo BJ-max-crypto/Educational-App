@@ -180,21 +180,25 @@ export async function POST(request: NextRequest) {
         false,
       ) ?? { ...NONE };
     const generatedAt = new Date(now).toISOString();
-    await writeAiNote(db.profileId, KIND, subject, {
-      forDate: today,
-      timeZone,
-      payload: {
-        courseId: picked.courseId,
-        schoolCourseId: picked.schoolCourseId,
-        name: picked.name,
-        teacher: picked.teacher,
-        period: picked.period,
-        label: picked.label,
-      },
-      model: answer.model,
-      generatedAt,
-    });
-    await produced.commit();
+    try {
+      await writeAiNote(db.profileId, KIND, subject, {
+        forDate: today,
+        timeZone,
+        payload: {
+          courseId: picked.courseId,
+          schoolCourseId: picked.schoolCourseId,
+          name: picked.name,
+          teacher: picked.teacher,
+          period: picked.period,
+          label: picked.label,
+        },
+        model: answer.model,
+        generatedAt,
+      });
+    } catch (error) {
+      await produced.release();
+      throw error;
+    }
     return reply({ ...picked, generatedAt });
   } catch (error) {
     console.error("course match failed", error);

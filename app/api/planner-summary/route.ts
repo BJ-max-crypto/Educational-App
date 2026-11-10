@@ -151,7 +151,7 @@ async function handle(request: NextRequest, refresh: boolean) {
 
   let summary: string;
   let model = "none";
-  let commit = async () => {};
+  let reservedUsed = premium.used;
   if (input.itemCount === 0 && input.overdueCount === 0 && !schedule) {
     summary = "- Nothing is due in the next 7 days and nothing is overdue.";
   } else {
@@ -159,7 +159,7 @@ async function handle(request: NextRequest, refresh: boolean) {
       const produced = await withPremiumAi(db.profileId, () => generateSummary(input, schedule));
       summary = produced.value.summary;
       model = produced.value.model;
-      commit = produced.commit;
+      reservedUsed = produced.used;
     } catch (error) {
       console.error("weekly summary generation failed", error);
       return NextResponse.json<PlannerSummaryResponse>({
@@ -190,7 +190,6 @@ async function handle(request: NextRequest, refresh: boolean) {
     generated_at: generatedAt,
   });
   if (saveError) console.error("weekly_summaries save failed", saveError.message);
-  await commit();
 
   const charged = model !== "none";
   return NextResponse.json<PlannerSummaryResponse>({
@@ -199,9 +198,9 @@ async function handle(request: NextRequest, refresh: boolean) {
     usedCalendar: input.usedCalendar,
     usedSchedule: input.usedSchedule,
     calendar: calendarInfo(calendar),
-    used: premium.used + (charged ? 1 : 0),
+    used: charged ? reservedUsed : premium.used,
     allowance: premium.allowance,
-    remaining: Math.max(0, premium.allowance - premium.used - (charged ? 1 : 0)),
+    remaining: Math.max(0, premium.allowance - (charged ? reservedUsed : premium.used)),
   });
 }
 

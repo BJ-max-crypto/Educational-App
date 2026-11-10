@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { ProUpgrade } from "@/components/pro-upgrade";
 import { retrieveCheckoutSession, stripeId } from "@/lib/stripe-server";
-import { loadBilling, syncStripeSubscription } from "@/lib/subscription";
+import { loadBilling, refreshEntitlement, syncStripeSubscription } from "@/lib/subscription";
 import { getUserDb } from "@/lib/user-db";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,11 @@ export default async function ProPage({
         notice = "That checkout belongs to a different account.";
       } else if (session.status === "complete" && subscriptionId) {
         await syncStripeSubscription(subscriptionId, db.profileId);
-        notice = "Payment received. Pane Pro is on.";
+        await refreshEntitlement(db.profileId);
+        const confirmed = await loadBilling(db.profileId);
+        notice = confirmed.tier === "pro"
+          ? "Payment received. Pane Pro is on."
+          : "Payment received. Pane Pro turns on when Stripe confirms it. Use Refresh status on Profile if it does not appear.";
       } else {
         notice = "Stripe has not confirmed that payment yet. Refresh this page in a moment, or use Refresh status on Profile.";
       }

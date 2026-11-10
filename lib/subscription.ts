@@ -4,15 +4,18 @@ import {
   AI_ACCESS_MESSAGE,
   DEFAULT_ALLOWANCES,
   FREE_BILLING,
+  PANE_PRO_ENTITLEMENT,
   type BillingInterval,
   type BillingSummary,
+  grantsPanePro,
+  readEntitlementSummary,
   subscriptionEntitled,
   usagePeriod,
 } from "@/lib/billing-config";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { retrieveSubscription, stripeId, type StripeSubscription } from "@/lib/stripe-server";
+import { listActiveLookupKeys, retrieveCustomer, retrieveSubscription, stripeId, type StripeSubscription } from "@/lib/stripe-server";
 
-const MISSING = /subscriptions|billing_events|ai_allowances|ai_usage|schema cache/i;
+const MISSING = /subscriptions|billing_events|ai_allowances|ai_usage|entitlements|reserve_ai_answer|release_ai_answer|schema cache/i;
 
 export type SubscriptionRow = {
   user_id: string;
@@ -72,22 +75,111 @@ async function usageFor(profileId: string, period: string) {
   return data?.used ?? 0;
 }
 
+type EntitlementRow = {
+  active: boolean;
+  synced_at: string;
+};
+
+async function loadEntitlement(profileId: string) {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("entitlements")
+    .select("active, synced_at")
+    .eq("user_id", profileId)
+    .maybeSingle();
+  if (error) {
+    if (MISSING.test(error.message)) return { row: null, setupError: AI_ACCESS_MESSAGE.billing_setup };
+    throw new Error(error.message);
+  }
+  return { row: (data ?? null) as EntitlementRow | null, setupError: null };
+}
+
+async function saveEntitlement(profileId: string, customerId: string | null, active: boolean) {
+  const admin = createAdminClient();
+  const { error } = await admin.from("entitlements").upsert({
+    user_id: profileId,
+    lookup_key: PANE_PRO_ENTITLEMENT,
+    active,
+    provider_customer_id: customerId,
+    synced_at: new Date().toISOString(),
+  });
+  if (error) {
+    if (MISSING.test(error.message)) throw new Error(AI_ACCESS_MESSAGE.billing_setup);
+    throw new Error(error.message);
+  }
+}
+
+async function profileIdForCustomer(customerId: string) {
+  const admin = createAdminClient();
+  const existing = await admin.from("subscriptions").select("user_id").eq("provider_customer_id", customerId).limit(1).maybeSingle();
+  if (existing.error) {
+    if (MISSING.test(existing.error.message)) throw new Error(AI_ACCESS_MESSAGE.billing_setup);
+    throw new Error(existing.error.message);
+  }
+  if (existing.data?.user_id) return existing.data.user_id;
+  const customer = await retrieveCustomer(customerId);
+  return customer.metadata?.profile_id || null;
+}
+
+/** Writes the customer's current Stripe entitlements onto that customer's Pane profile. */
+export async function refreshEntitlementForCustomer(customerId: string) {
+  const profileId = await profileIdForCustomer(customerId);
+  if (!profileId) return false;
+  const active = grantsPanePro(await listActiveLookupKeys(customerId));
+  await saveEntitlement(profileId, customerId, active);
+  return active;
+}
+
+/** Asks Stripe whether this profile's customer has pane_pro_ai, then stores the answer. */
+export async function refreshEntitlement(profileId: string) {
+  const customerId = await findStripeCustomer(profileId);
+  if (!customerId) {
+    await saveEntitlement(profileId, null, false);
+    return false;
+  }
+  return refreshEntitlementForCustomer(customerId);
+}
+
+/** A fresh cached entitlement, used only when Stripe cannot be reached. */
+export async function recentEntitlement(profileId: string, maxAgeMs: number) {
+  const { row, setupError } = await loadEntitlement(profileId);
+  if (setupError) throw new Error(setupError);
+  if (!row) return null;
+  if (Date.now() - Date.parse(row.synced_at) > maxAgeMs) return null;
+  return row.active;
+}
+
+/**
+ * Stores the entitlement summary Stripe sent.
+ * When the summary is truncated, Pane reads the full active list from Stripe.
+ */
+export async function applyEntitlementSummary(object: Record<string, unknown> | undefined) {
+  const summary = readEntitlementSummary(object);
+  if (!summary.customerId) return;
+  const profileId = await profileIdForCustomer(summary.customerId);
+  if (!profileId) return;
+  const keys = summary.hasMore ? await listActiveLookupKeys(summary.customerId) : summary.lookupKeys;
+  await saveEntitlement(profileId, summary.customerId, grantsPanePro(keys));
+}
+
 export async function loadBilling(profileId: string, now = Date.now()): Promise<BillingSummary> {
   try {
-    const { rows, setupError } = await loadSubscriptionRows(profileId);
-    if (setupError) return { ...FREE_BILLING, setupError };
-    const entitled = rows.find((row) =>
-      subscriptionEntitled(
-        {
-          status: row.status,
-          current_period_end: row.current_period_end,
-          cancel_at_period_end: row.cancel_at_period_end,
-        },
-        now,
-      ),
-    );
-    const shown = entitled ?? rows[0] ?? null;
-    const tier = entitled ? "pro" : "free";
+    const [{ rows, setupError }, entitlement] = await Promise.all([loadSubscriptionRows(profileId), loadEntitlement(profileId)]);
+    if (setupError || entitlement.setupError) return { ...FREE_BILLING, setupError: setupError || entitlement.setupError };
+    const shown =
+      rows.find((row) =>
+        subscriptionEntitled(
+          {
+            status: row.status,
+            current_period_end: row.current_period_end,
+            cancel_at_period_end: row.cancel_at_period_end,
+          },
+          now,
+        ),
+      ) ??
+      rows[0] ??
+      null;
+    const tier = entitlement.row?.active ? "pro" : "free";
     const period = usagePeriod(new Date(now));
     const [allowance, proAllowance, used] = await Promise.all([
       allowanceFor(tier),
@@ -198,13 +290,27 @@ export async function readAiUsage(profileId: string, now = Date.now()) {
   return { ...billing, periodStart: usagePeriod(new Date(now)) };
 }
 
-export async function incrementAiUsage(profileId: string, periodStart: string, used: number) {
+/** Atomically takes one answer. Returns the new total, or null when the allowance is already used. */
+export async function reserveAiAnswer(profileId: string, periodStart: string, limit: number) {
   const admin = createAdminClient();
-  const { error } = await admin.from("ai_usage").upsert({
-    user_id: profileId,
-    period_start: periodStart,
-    used: used + 1,
-    updated_at: new Date().toISOString(),
+  const { data, error } = await admin.rpc("reserve_ai_answer", {
+    p_user_id: profileId,
+    p_period: periodStart,
+    p_limit: limit,
   });
-  if (error) console.error("ai usage save failed", error.message);
+  if (error) {
+    if (MISSING.test(error.message)) throw new Error(AI_ACCESS_MESSAGE.billing_setup);
+    throw new Error(error.message);
+  }
+  return typeof data === "number" ? data : null;
+}
+
+/** Gives back an answer reserved for a generation that was not kept. */
+export async function releaseAiAnswer(profileId: string, periodStart: string) {
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("release_ai_answer", {
+    p_user_id: profileId,
+    p_period: periodStart,
+  });
+  if (error) console.error("ai usage release failed", error.message);
 }

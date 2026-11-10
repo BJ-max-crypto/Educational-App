@@ -85,7 +85,7 @@ async function generate(profileId: string, now: number, timeZone: string, today:
   const items = await loadItems(profileId, now, timeZone);
   const labels: Record<string, PriorityTier> = {};
   let model = "none";
-  let commit = async () => {};
+  let release = async () => {};
   if (items.length) {
     const list = items.map((item) => `${item.id} | ${item.course} | ${item.due} | ${item.title}`).join("\n");
     const produced = await withPremiumAi(profileId, async () => {
@@ -96,7 +96,7 @@ async function generate(profileId: string, now: number, timeZone: string, today:
       });
       return { answer, json: parseJsonObject(answer.text) };
     });
-    commit = produced.commit;
+    release = produced.release;
     model = produced.value.answer.model;
     const json = produced.value.json;
     const rows = Array.isArray(json.labels) ? json.labels : [];
@@ -110,14 +110,18 @@ async function generate(profileId: string, now: number, timeZone: string, today:
     for (const item of items) labels[item.id] = coerceTier(item.offset, byId.get(item.id));
   }
   const generatedAt = new Date(now).toISOString();
-  await writeAiNote(profileId, KIND, SUBJECT, {
-    forDate: today,
-    timeZone,
-    payload: { labels },
-    model,
-    generatedAt,
-  });
-  await commit();
+  try {
+    await writeAiNote(profileId, KIND, SUBJECT, {
+      forDate: today,
+      timeZone,
+      payload: { labels },
+      model,
+      generatedAt,
+    });
+  } catch (error) {
+    await release();
+    throw error;
+  }
   return { labels, generatedAt };
 }
 

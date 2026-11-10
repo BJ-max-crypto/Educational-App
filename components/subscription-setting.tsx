@@ -116,8 +116,7 @@ export function SubscriptionSetting() {
       </div>
       {pro ? (
         <p className="mt-3 text-[12px] text-[#5b6478]">
-          Canceling keeps Pane Pro until the end of the period you already paid for. Stripe sends the update that turns the account
-          back to Pane Free.
+          Canceling keeps Pane Pro until Stripe removes it at the end of the period you already paid for.
         </p>
       ) : (
         <p className="mt-3 text-[12px] text-[#5b6478]">

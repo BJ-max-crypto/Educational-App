@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { annualSavingsCents, PLANS, subscriptionEntitled, usagePeriod } from "../lib/billing-config.ts";
+import {
+  annualSavingsCents,
+  grantsPanePro,
+  PANE_PRO_ENTITLEMENT,
+  PLANS,
+  readEntitlementSummary,
+  subscriptionEntitled,
+  usagePeriod,
+} from "../lib/billing-config.ts";
 import { verifyStripeSignature } from "../lib/stripe-signature.ts";
 
 function header(payload: string, secret: string, seconds: number) {
@@ -38,4 +46,61 @@ test("annual billing saves against twelve months and usage periods are UTC month
   assert.equal(PLANS.year.amountCents, 3999);
   assert.equal(annualSavingsCents(), 499 * 12 - 3999);
   assert.equal(usagePeriod(new Date("2026-11-10T23:30:00-05:00")), "2026-11-01");
+  assert.equal(PANE_PRO_ENTITLEMENT, "pane_pro_ai");
+});
+
+test("Stripe entitlement summaries grant and revoke one shared Pane Pro feature", () => {
+  const granted = readEntitlementSummary({
+    customer: "cus_123",
+    entitlements: {
+      data: [{ lookup_key: "pane_pro_ai" }, { lookup_key: "something_else" }],
+      has_more: false,
+    },
+  });
+  assert.equal(granted.customerId, "cus_123");
+  assert.equal(grantsPanePro(granted.lookupKeys), true);
+  assert.equal(granted.hasMore, false);
+
+  const revoked = readEntitlementSummary({
+    customer: { id: "cus_123" },
+    entitlements: { data: [], has_more: false },
+  });
+  assert.equal(revoked.customerId, "cus_123");
+  assert.equal(grantsPanePro(revoked.lookupKeys), false);
+
+  const truncated = readEntitlementSummary({
+    customer: "cus_123",
+    entitlements: { data: [{ lookup_key: "other" }], has_more: true },
+  });
+  assert.equal(truncated.hasMore, true);
+  assert.equal(grantsPanePro(truncated.lookupKeys), false);
+});
+
+test("serialized reservations stop at the monthly allowance and a release gives one back", async () => {
+  let used = 78;
+  const limit = 80;
+  let chain = Promise.resolve();
+  function reserve() {
+    const run = chain.then(() => {
+      if (used >= limit) return null;
+      used += 1;
+      return used;
+    });
+    chain = run.then(() => undefined);
+    return run;
+  }
+  function release() {
+    const run = chain.then(() => {
+      used = Math.max(0, used - 1);
+    });
+    chain = run.then(() => undefined);
+    return run;
+  }
+  const first = await Promise.all([reserve(), reserve(), reserve(), reserve()]);
+  assert.deepEqual(first.filter((value) => value !== null), [79, 80]);
+  assert.equal(used, 80);
+  await release();
+  const second = await reserve();
+  assert.equal(second, 80);
+  assert.equal(used, 80);
 });

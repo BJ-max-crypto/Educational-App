@@ -127,14 +127,18 @@ export async function POST(request: NextRequest) {
     const { answer, review } = produced.value;
     const heading = new Intl.DateTimeFormat("en-US", { timeZone, month: "long", day: "numeric", year: "numeric" }).format(new Date(now));
     const generatedAt = new Date(now).toISOString();
-    await writeAiNote(db.profileId, KIND, "week", {
-      forDate: today,
-      timeZone,
-      payload: { review, heading, items },
-      model: answer.model,
-      generatedAt,
-    });
-    await produced.commit();
+    try {
+      await writeAiNote(db.profileId, KIND, "week", {
+        forDate: today,
+        timeZone,
+        payload: { review, heading, items },
+        model: answer.model,
+        generatedAt,
+      });
+    } catch (error) {
+      await produced.release();
+      throw error;
+    }
     return reply({ review, heading, items, generatedAt });
   } catch (error) {
     console.error("week review failed", error);
