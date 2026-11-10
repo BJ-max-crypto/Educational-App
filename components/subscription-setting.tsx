@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useOpenProUpgrade } from "@/components/pro-upgrade-dialog";
 import { useCoursework } from "@/lib/coursework";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -25,6 +25,7 @@ function formatDay(value: string) {
 
 export function SubscriptionSetting() {
   const { billing } = useCoursework();
+  const openPro = useOpenProUpgrade();
   const router = useRouter();
   const [busy, setBusy] = useState<"portal" | "sync" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,13 +73,14 @@ export function SubscriptionSetting() {
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {pro ? null : (
-          <Link
-            href="/pro"
-            data-m="tap"
+          <button
+            type="button"
+            onClick={() => openPro?.()}
+            data-m="tap pro-cta"
             className="rounded-full bg-[#14213d] px-4 py-2 text-[13px] font-semibold text-white"
           >
             Upgrade to Pane Pro
-          </Link>
+          </button>
         )}
         {billing.portal ? (
           <>

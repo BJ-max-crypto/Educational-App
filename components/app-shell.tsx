@@ -6,6 +6,7 @@ import { AssignmentAlerts } from "@/components/assignment-alerts";
 import { Background } from "@/components/background";
 import { NotificationsBadge } from "@/components/notifications-bar";
 import { SaveErrorBanner } from "@/components/sync-status";
+import { ProDialogRoot } from "@/components/pro-upgrade-dialog";
 import { TagSuggestionsPanel } from "@/components/tag-suggestions";
 import { TopNav } from "@/components/top-nav";
 import { TimeZoneReporter } from "@/components/time-zone-reporter";
@@ -55,6 +56,7 @@ export function AppShell({
       classmatesByCourseId={classmatesByCourseId}
       billing={billing}
     >
+      <ProDialogRoot>
       <TimeZoneReporter known={knownTimeZone} />
       <AssignmentAlerts />
       <Background />
@@ -87,6 +89,7 @@ export function AppShell({
         </main>
       </div>
       <TagSuggestionsPanel />
+      </ProDialogRoot>
     </CourseworkProvider>
   );
 }

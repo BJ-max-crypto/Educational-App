@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { AssignmentAiResponse } from "@/app/api/assignment-ai/route";
 import { GlassCard } from "@/components/glass-card";
 import { SparkleIcon } from "@/components/sparkle-icon";
+import { useOpenProUpgrade } from "@/components/pro-upgrade-dialog";
 import { UpgradeNote } from "@/components/upgrade-note";
 import { clientTimeZone } from "@/lib/client-zone";
 import { useCoursework } from "@/lib/coursework";
@@ -13,6 +14,8 @@ type Action = "breakdown" | "reason";
 
 export function AssignmentAi({ assignmentId, title }: { assignmentId: string; title: string }) {
   const { billing } = useCoursework();
+  const openPro = useOpenProUpgrade();
+  const locked = billing.tier !== "pro";
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<Action | null>(null);
   const [shown, setShown] = useState<Action | null>(null);
@@ -84,16 +87,30 @@ export function AssignmentAi({ assignmentId, title }: { assignmentId: string; ti
         <div className="mt-2 flex flex-col gap-1">
           <button
             type="button"
-            disabled={busy !== null || billing.tier !== "pro"}
-            onClick={() => void run("breakdown")}
+            disabled={busy !== null || (locked && !openPro)}
+            onClick={() => {
+              if (locked) {
+                setOpen(false);
+                openPro?.();
+                return;
+              }
+              void run("breakdown");
+            }}
             className="rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
           >
             {busy === "breakdown" ? "Breaking it down…" : "Break this down"}
           </button>
           <button
             type="button"
-            disabled={busy !== null || billing.tier !== "pro"}
-            onClick={() => void run("reason")}
+            disabled={busy !== null || (locked && !openPro)}
+            onClick={() => {
+              if (locked) {
+                setOpen(false);
+                openPro?.();
+                return;
+              }
+              void run("reason");
+            }}
             className="rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
           >
             {busy === "reason" ? "Thinking…" : "Why this priority"}

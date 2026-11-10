@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CourseMatchResponse } from "@/app/api/course-match/route";
+import { useOpenProUpgrade } from "@/components/pro-upgrade-dialog";
 import { UpgradeNote } from "@/components/upgrade-note";
 import { clientTimeZone } from "@/lib/client-zone";
 import { useCoursework } from "@/lib/coursework";
@@ -25,6 +26,8 @@ export function CourseSuggest({
   onUseSchool?: (course: SchoolCourseHit) => void;
 }) {
   const { billing } = useCoursework();
+  const openPro = useOpenProUpgrade();
+  const locked = billing.tier !== "pro";
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<CourseMatchResponse | null>(null);
   const ready = Boolean(assignmentId) || name.trim().length >= 2;
@@ -55,8 +58,14 @@ export function CourseSuggest({
     <div className="max-w-[240px]">
       <button
         type="button"
-        disabled={!ready || busy || disabled || billing.tier !== "pro"}
-        onClick={() => void suggest()}
+        disabled={locked ? !openPro : !ready || busy || disabled}
+        onClick={() => {
+          if (locked) {
+            openPro?.();
+            return;
+          }
+          void suggest();
+        }}
         className="text-left text-[12px] font-semibold text-[#4f7cff] disabled:opacity-60"
       >
         {busy ? "Checking…" : buttonLabel}

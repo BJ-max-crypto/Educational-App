@@ -6,6 +6,7 @@ import type { PriorityLabelsResponse } from "@/app/api/priority-labels/route";
 import type { WeekReviewResponse } from "@/app/api/week-review/route";
 import { GlassCard } from "@/components/glass-card";
 import { SparkleIcon } from "@/components/sparkle-icon";
+import { useOpenProUpgrade } from "@/components/pro-upgrade-dialog";
 import { UpgradeNote } from "@/components/upgrade-note";
 import { clientTimeZone } from "@/lib/client-zone";
 import { useCoursework } from "@/lib/coursework";
@@ -21,6 +22,8 @@ export function AiToolsMenu({
   onReview: (data: WeekReviewResponse) => void;
 }) {
   const { billing } = useCoursework();
+  const openPro = useOpenProUpgrade();
+  const locked = billing.tier !== "pro";
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"generate" | "refresh" | "review" | null>(null);
   const [note, setNote] = useState<{ text: string; problem: boolean; code?: AiAccessCode } | null>(null);
@@ -112,8 +115,15 @@ export function AiToolsMenu({
             )}
             <button
               type="button"
-              disabled={busy !== null || billing.tier !== "pro"}
-              onClick={() => void run(false)}
+              disabled={busy !== null || (locked && !openPro)}
+              onClick={() => {
+                if (locked) {
+                  setOpen(false);
+                  openPro?.();
+                  return;
+                }
+                void run(false);
+              }}
               className="w-full rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
             >
               {busy === "generate" ? "Generating…" : "Generate priority labels"}
@@ -121,8 +131,15 @@ export function AiToolsMenu({
             <button
               type="button"
               data-feature={FEATURE.weekReview}
-              disabled={busy !== null || billing.tier !== "pro"}
-              onClick={() => void printReview()}
+              disabled={busy !== null || (locked && !openPro)}
+              onClick={() => {
+                if (locked) {
+                  setOpen(false);
+                  openPro?.();
+                  return;
+                }
+                void printReview();
+              }}
               className="w-full rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
             >
               {busy === "review" ? "Writing…" : "Print week review"}
@@ -130,8 +147,15 @@ export function AiToolsMenu({
             {hasLabels ? (
               <button
                 type="button"
-                disabled={busy !== null || billing.tier !== "pro"}
-                onClick={() => void run(true)}
+                disabled={busy !== null || (locked && !openPro)}
+                onClick={() => {
+                  if (locked) {
+                    setOpen(false);
+                    openPro?.();
+                    return;
+                  }
+                  void run(true);
+                }}
                 className="w-full rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
               >
                 {busy === "refresh" ? "Refreshing…" : "Refresh priority labels"}

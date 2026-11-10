@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlannerSummaryResponse } from "@/app/api/planner-summary/route";
 import { removeSchedulePhoto, saveSchedulePhoto, schedulePreview } from "@/app/(app)/schedule-actions";
 import { GlassCard } from "@/components/glass-card";
+import { useOpenProUpgrade } from "@/components/pro-upgrade-dialog";
 import { UpgradeNote } from "@/components/upgrade-note";
 import { useCoursework } from "@/lib/coursework";
 import { FEATURE } from "@/lib/pro";
@@ -34,6 +35,7 @@ async function request(method: "GET" | "POST") {
 
 export function WeeklySummaryCard() {
   const { billing } = useCoursework();
+  const openPro = useOpenProUpgrade();
   const [state, setState] = useState<State>({ phase: "loading" });
   const [refreshing, setRefreshing] = useState(false);
   const pro = billing.tier === "pro";
@@ -66,12 +68,18 @@ export function WeeklySummaryCard() {
         <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">THIS WEEK</h2>
         <button
           type="button"
-          onClick={refresh}
-          disabled={!pro || refreshing || state.phase === "loading"}
+          onClick={() => {
+            if (!pro) {
+              openPro?.();
+              return;
+            }
+            refresh();
+          }}
+          disabled={pro ? refreshing || state.phase === "loading" : !openPro}
           data-m="tap"
           className="rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] disabled:opacity-60 disabled:hover:translate-y-0 motion-reduce:transition-none"
         >
-          {refreshing ? "Refreshing…" : "Refresh"}
+          {pro ? (refreshing ? "Refreshing…" : "Refresh") : "See Pane Pro"}
         </button>
       </div>
 
@@ -80,9 +88,6 @@ export function WeeklySummaryCard() {
           <p className="text-[15px] leading-relaxed text-[#14213d]">
             The weekly summary is a short list of what is due, written from your assignments. It is part of Pane Pro.
           </p>
-          <div className="mt-2">
-            <UpgradeNote code="pro_required" />
-          </div>
         </div>
       )}
 
