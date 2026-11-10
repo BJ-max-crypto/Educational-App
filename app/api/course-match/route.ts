@@ -1,7 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { AI_MIGRATION, AiError, askClaude, parseJsonObject } from "@/lib/ai";
-import { isPlusWall, PLUS_WALL, withAiCredit } from "@/lib/ai-credits";
+import { aiAccessResult, assertPremium, withPremiumAi } from "@/lib/ai-access";
+import type { AiAccessCode } from "@/lib/billing-config";
 import { cacheIsFresh, readAiNote, writeAiNote } from "@/lib/ai-cache";
 import { formatSchoolCourse, type SchoolCourseHit } from "@/lib/school-course-match";
 import { findSchoolCourseSuggestions } from "@/lib/school-courses";
@@ -23,6 +24,7 @@ export type CourseMatchResponse = {
   label: string | null;
   generatedAt: string | null;
   error?: string;
+  code?: AiAccessCode;
 };
 
 const SYSTEM = [
@@ -138,6 +140,7 @@ export async function POST(request: NextRequest) {
     if (schoolSearch.notice && !mine.length) return reply({ ...NONE, error: schoolSearch.notice });
     const school = schoolSearch.suggestions;
     if (!mine.length && !school.length) return reply(NONE);
+    await assertPremium(db.profileId);
 
     const tzParam = request.nextUrl.searchParams.get("tz");
     const timeZone = isValidZone(tzParam) ? tzParam : "UTC";
@@ -155,16 +158,17 @@ export async function POST(request: NextRequest) {
 
     const myList = mine.map((course) => `${course.id} | ${clip(course.name, 80)} | ${clip(course.teacher ?? "", 80)}`).join("\n");
     const schoolList = school.map((course) => `${course.id} | ${formatSchoolCourse(course)}`).join("\n");
-    const answer = await withAiCredit(db.profileId, () =>
-      askClaude({
+    const produced = await withPremiumAi(db.profileId, async () => {
+      const answer = await askClaude({
         system: SYSTEM,
         user: [`Query: ${name}`, extra ? `Details: ${extra}` : "", "MY COURSES", myList || "(none)", "SCHOOL COURSES", schoolList || "(none)"]
           .filter(Boolean)
           .join("\n"),
         maxTokens: 220,
-      }),
-    );
-    const json = parseJsonObject(answer.text);
+      });
+      return { answer, json: parseJsonObject(answer.text) };
+    });
+    const { answer, json } = produced.value;
     const picked =
       fromPayload(
         {
@@ -190,10 +194,12 @@ export async function POST(request: NextRequest) {
       model: answer.model,
       generatedAt,
     });
+    await produced.commit();
     return reply({ ...picked, generatedAt });
   } catch (error) {
     console.error("course match failed", error);
-    const message = isPlusWall(error) ? PLUS_WALL : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't suggest a course. Try again.";
-    return reply({ ...NONE, error: message });
+    const access = aiAccessResult(error);
+    const message = access ? access.error : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't suggest a course. Try again.";
+    return reply({ ...NONE, error: message, code: access?.code });
   }
 }

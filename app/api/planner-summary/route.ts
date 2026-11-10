@@ -6,7 +6,8 @@ import { getBusyBlocks, type CalendarState } from "@/lib/google-calendar";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidZone, localDate } from "@/lib/timezone";
 import { getUserDb } from "@/lib/user-db";
-import { isPlusWall, PLUS_WALL, withAiCredit } from "@/lib/ai-credits";
+import { aiAccessResult, assertPremium, withPremiumAi } from "@/lib/ai-access";
+import type { AiAccessCode } from "@/lib/billing-config";
 import { buildSummaryInput, generateSummary, isBulletSummary, SummaryError } from "@/lib/weekly-summary";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,10 @@ export type PlannerSummaryResponse = {
   usedSchedule: boolean;
   calendar: { status: CalendarState["status"]; message?: string };
   error?: string;
+  code?: AiAccessCode;
+  used?: number;
+  allowance?: number;
+  remaining?: number;
 };
 
 function calendarInfo(state: CalendarState): PlannerSummaryResponse["calendar"] {
@@ -47,6 +52,27 @@ async function handle(request: NextRequest, refresh: boolean) {
 
   const db = await getUserDb(userId);
   if (!db) return NextResponse.json({ error: "Finish onboarding first." }, { status: 404 });
+  let premium: Awaited<ReturnType<typeof assertPremium>>;
+  try {
+    premium = await assertPremium(db.profileId);
+  } catch (error) {
+    const access = aiAccessResult(error);
+    if (access) {
+      return NextResponse.json<PlannerSummaryResponse>({
+        summary: null,
+        generatedAt: null,
+        usedCalendar: false,
+        usedSchedule: false,
+        calendar: { status: "not_connected" },
+        error: access.code === "pro_required" ? undefined : access.error,
+        code: access.code,
+        used: 0,
+        allowance: 0,
+        remaining: 0,
+      });
+    }
+    throw error;
+  }
 
   const admin = createAdminClient();
   const cachedFull = await admin
@@ -125,11 +151,15 @@ async function handle(request: NextRequest, refresh: boolean) {
 
   let summary: string;
   let model = "none";
+  let commit = async () => {};
   if (input.itemCount === 0 && input.overdueCount === 0 && !schedule) {
     summary = "- Nothing is due in the next 7 days and nothing is overdue.";
   } else {
     try {
-      ({ summary, model } = await withAiCredit(db.profileId, () => generateSummary(input, schedule)));
+      const produced = await withPremiumAi(db.profileId, () => generateSummary(input, schedule));
+      summary = produced.value.summary;
+      model = produced.value.model;
+      commit = produced.commit;
     } catch (error) {
       console.error("weekly summary generation failed", error);
       return NextResponse.json<PlannerSummaryResponse>({
@@ -138,11 +168,12 @@ async function handle(request: NextRequest, refresh: boolean) {
         usedCalendar: row?.used_calendar ?? false,
         usedSchedule: usedScheduleCached,
         calendar: calendarInfo(calendar),
-        error: isPlusWall(error)
-          ? PLUS_WALL
+        error: aiAccessResult(error)
+          ? aiAccessResult(error)?.error
           : `Couldn't write this week's summary: ${
               error instanceof SummaryError ? error.message : "something went wrong. Try Refresh."
             } Your list below is up to date.`,
+        code: aiAccessResult(error)?.code,
       });
     }
   }
@@ -159,13 +190,18 @@ async function handle(request: NextRequest, refresh: boolean) {
     generated_at: generatedAt,
   });
   if (saveError) console.error("weekly_summaries save failed", saveError.message);
+  await commit();
 
+  const charged = model !== "none";
   return NextResponse.json<PlannerSummaryResponse>({
     summary,
     generatedAt,
     usedCalendar: input.usedCalendar,
     usedSchedule: input.usedSchedule,
     calendar: calendarInfo(calendar),
+    used: premium.used + (charged ? 1 : 0),
+    allowance: premium.allowance,
+    remaining: Math.max(0, premium.allowance - premium.used - (charged ? 1 : 0)),
   });
 }
 
@@ -181,9 +217,10 @@ async function safely(request: NextRequest, refresh: boolean) {
         usedCalendar: false,
         usedSchedule: false,
         calendar: { status: "error" },
-        error: isPlusWall(error) ? PLUS_WALL : "Couldn't load this week's summary.",
+        error: aiAccessResult(error)?.error ?? "Couldn't load this week's summary.",
+        code: aiAccessResult(error)?.code,
       },
-      { status: isPlusWall(error) ? 200 : 500 },
+      { status: aiAccessResult(error) ? 200 : 500 },
     );
   }
 }

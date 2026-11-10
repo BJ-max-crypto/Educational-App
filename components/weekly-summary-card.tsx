@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlannerSummaryResponse } from "@/app/api/planner-summary/route";
 import { removeSchedulePhoto, saveSchedulePhoto, schedulePreview } from "@/app/(app)/schedule-actions";
 import { GlassCard } from "@/components/glass-card";
+import { UpgradeNote } from "@/components/upgrade-note";
+import { useCoursework } from "@/lib/coursework";
 import { FEATURE } from "@/lib/pro";
 
 type State =
@@ -31,10 +33,13 @@ async function request(method: "GET" | "POST") {
 }
 
 export function WeeklySummaryCard() {
+  const { billing } = useCoursework();
   const [state, setState] = useState<State>({ phase: "loading" });
   const [refreshing, setRefreshing] = useState(false);
+  const pro = billing.tier === "pro";
 
   useEffect(() => {
+    if (!pro) return;
     let cancelled = false;
     request("GET")
       .then((data) => !cancelled && setState({ phase: "ready", data }))
@@ -42,7 +47,7 @@ export function WeeklySummaryCard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pro]);
 
   const refresh = useCallback(() => {
     setRefreshing(true);
@@ -62,7 +67,7 @@ export function WeeklySummaryCard() {
         <button
           type="button"
           onClick={refresh}
-          disabled={refreshing || state.phase === "loading"}
+          disabled={!pro || refreshing || state.phase === "loading"}
           data-m="tap"
           className="rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] disabled:opacity-60 disabled:hover:translate-y-0 motion-reduce:transition-none"
         >
@@ -70,14 +75,25 @@ export function WeeklySummaryCard() {
         </button>
       </div>
 
-      {state.phase === "loading" ? (
+      {pro ? null : (
+        <div className="mt-3">
+          <p className="text-[15px] leading-relaxed text-[#14213d]">
+            The weekly summary is a short list of what is due, written from your assignments. It is part of Pane Pro.
+          </p>
+          <div className="mt-2">
+            <UpgradeNote code="pro_required" />
+          </div>
+        </div>
+      )}
+
+      {pro && state.phase === "loading" ? (
         <div className="mt-3 space-y-2" aria-busy="true" aria-label="Writing this week's summary">
           <div className="h-4 w-full animate-pulse rounded-full bg-white/70" />
           <div className="h-4 w-4/5 animate-pulse rounded-full bg-white/70" />
         </div>
       ) : null}
 
-      {data?.summary ? (
+      {pro && data?.summary ? (
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[16px] leading-[1.45] text-[#14213d]">
           {data.summary
             .split(/\n+/)
@@ -89,15 +105,19 @@ export function WeeklySummaryCard() {
         </ul>
       ) : null}
 
-      {error ? (
-        <p role="alert" className="mt-3 text-[14px] font-medium text-[#e5484d]">
-          {error}
-        </p>
+      {pro && error ? (
+        <div className="mt-3">
+          {data?.code ? <UpgradeNote code={data.code} message={error} /> : (
+            <p role="alert" className="text-[14px] font-medium text-[#e5484d]">
+              {error}
+            </p>
+          )}
+        </div>
       ) : null}
 
-      <SchedulePhoto onSaved={refresh} />
+      <SchedulePhoto onSaved={pro ? refresh : () => undefined} />
 
-      {data && !error ? (
+      {pro && data && !error ? (
         <p className="mt-3 text-[12px] text-[#5b6478]">
           {data.usedSchedule && data.usedCalendar
             ? "Based on your assignments, your schedule photo, and Google Calendar."

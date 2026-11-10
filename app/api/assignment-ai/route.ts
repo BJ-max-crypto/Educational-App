@@ -1,7 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { AI_MIGRATION, AiError, askClaude, parseJsonObject } from "@/lib/ai";
-import { isPlusWall, PLUS_WALL, withAiCredit } from "@/lib/ai-credits";
+import { aiAccessResult, assertPremium, withPremiumAi } from "@/lib/ai-access";
+import type { AiAccessCode } from "@/lib/billing-config";
 import { cacheIsFresh, readAiNote, writeAiNote } from "@/lib/ai-cache";
 import { dueDayOffset } from "@/lib/priority-tier";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -18,6 +19,7 @@ export type AssignmentAiResponse = {
   text: string | null;
   generatedAt: string | null;
   error?: string;
+  code?: AiAccessCode;
 };
 
 const BREAKDOWN = [
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
     }
     const db = await getUserDb(userId);
     if (!db) return reply({ action, steps: null, text: null, generatedAt: null, error: "Finish onboarding first." }, 404);
+    await assertPremium(db.profileId);
 
     const tzParam = request.nextUrl.searchParams.get("tz");
     const timeZone = isValidZone(tzParam) ? tzParam : "UTC";
@@ -110,18 +113,20 @@ export async function POST(request: NextRequest) {
     const facts = [`Title: ${title}`, `Course: ${course?.name ?? "Unsorted"}`, `Due: ${due}`, description ? `Description: ${description}` : ""]
       .filter(Boolean)
       .join("\n");
-    const answer = await withAiCredit(db.profileId, () =>
-      askClaude({
+    const produced = await withPremiumAi(db.profileId, async () => {
+      const answer = await askClaude({
         system: action === "breakdown" ? BREAKDOWN : REASON,
         user: facts,
         maxTokens: action === "breakdown" ? 500 : 320,
-      }),
-    );
-    const json = parseJsonObject(answer.text);
-    const steps = action === "breakdown" ? asSteps(json) : null;
-    const text = action === "reason" ? asText(json) : null;
-    if (action === "breakdown" && !steps) throw new AiError("The AI service returned an answer Pane couldn't read. Try again.");
-    if (action === "reason" && !text) throw new AiError("The AI service returned an answer Pane couldn't read. Try again.");
+      });
+      const json = parseJsonObject(answer.text);
+      const steps = action === "breakdown" ? asSteps(json) : null;
+      const text = action === "reason" ? asText(json) : null;
+      if (action === "breakdown" && !steps) throw new AiError("The AI service returned an answer Pane couldn't read. Try again.");
+      if (action === "reason" && !text) throw new AiError("The AI service returned an answer Pane couldn't read. Try again.");
+      return { answer, steps, text };
+    });
+    const { answer, steps, text } = produced.value;
     const generatedAt = new Date(now).toISOString();
     const payload: Record<string, unknown> = action === "breakdown" ? { steps } : { text };
     await writeAiNote(db.profileId, action, assignmentId, {
@@ -131,10 +136,12 @@ export async function POST(request: NextRequest) {
       model: answer.model,
       generatedAt,
     });
+    await produced.commit();
     return reply({ action, steps, text, generatedAt });
   } catch (error) {
     console.error("assignment ai failed", error);
-    const message = isPlusWall(error) ? PLUS_WALL : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't do that. Try again.";
-    return reply({ action: null, steps: null, text: null, generatedAt: null, error: message });
+    const access = aiAccessResult(error);
+    const message = access ? access.error : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't do that. Try again.";
+    return reply({ action: null, steps: null, text: null, generatedAt: null, error: message, code: access?.code });
   }
 }

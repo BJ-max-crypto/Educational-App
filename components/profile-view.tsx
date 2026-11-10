@@ -11,6 +11,7 @@ import { SyncButton, useSyncLabel } from "@/components/sync-status";
 import { initials } from "@/lib/dates";
 import { useCoursework } from "@/lib/coursework";
 import { AppearanceSetting } from "@/components/appearance-setting";
+import { SubscriptionSetting } from "@/components/subscription-setting";
 import { AssignmentAlertSetting } from "@/components/assignment-alerts";
 import { SchoolInvite } from "@/components/school-invite";
 
@@ -155,6 +156,8 @@ export function ProfileView() {
             ))}
           </div>
         </section>
+
+        <SubscriptionSetting />
 
         <section className="rounded-[24px] bg-white/55 px-6 py-5">
           <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">
