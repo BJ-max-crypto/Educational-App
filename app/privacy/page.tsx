@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Background } from "@/components/background";
 import { GlassCard } from "@/components/glass-card";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function PrivacyPage() {
   return (
-    <div className="relative min-h-screen">
+    <div className="relative flex min-h-screen flex-col">
       <Background />
-      <div className="mx-auto w-full max-w-[720px] px-4 py-12">
+      <div className="mx-auto w-full max-w-[720px] flex-1 px-4 py-12">
         <Link href="/sign-up" className="text-[14px] font-medium text-[#5b6478]">
           ‹ Create account
         </Link>
@@ -32,6 +33,7 @@ export default function PrivacyPage() {
           </div>
         </GlassCard>
       </div>
+      <SiteFooter />
     </div>
   );
 }

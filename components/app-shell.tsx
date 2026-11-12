@@ -6,6 +6,7 @@ import { AssignmentAlerts } from "@/components/assignment-alerts";
 import { Background } from "@/components/background";
 import { NotificationsBadge } from "@/components/notifications-bar";
 import { SaveErrorBanner } from "@/components/sync-status";
+import { SiteFooter } from "@/components/site-footer";
 import { ProDialogRoot } from "@/components/pro-upgrade-dialog";
 import { TagSuggestionsPanel } from "@/components/tag-suggestions";
 import { TopNav } from "@/components/top-nav";
@@ -60,7 +61,7 @@ export function AppShell({
       <TimeZoneReporter known={knownTimeZone} />
       <AssignmentAlerts />
       <Background />
-      <div data-m="app" className="relative mx-auto min-h-screen w-full max-w-[1440px]">
+      <div data-m="app" className="relative mx-auto flex min-h-screen w-full max-w-[1440px] flex-col">
         <header data-m="header" className="flex flex-col items-center gap-4 px-4 pt-6 md:h-[108px] md:flex-row md:px-[84px] md:pt-7">
           <div className="flex w-full items-center justify-end md:contents">
             <div data-m="avatar" className="relative md:ml-auto">
@@ -83,10 +84,11 @@ export function AppShell({
             <TopNav />
           </div>
         </header>
-        <main data-m="main" className="px-4 pb-16 pt-4 md:px-[84px] md:pt-2">
+        <main data-m="main" className="flex-1 px-4 pb-8 pt-4 md:px-[84px] md:pt-2">
           <SaveErrorBanner />
           {children}
         </main>
+        <SiteFooter clearTabBar />
       </div>
       <TagSuggestionsPanel />
       </ProDialogRoot>

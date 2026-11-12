@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Background } from "@/components/background";
+import { SiteFooter } from "@/components/site-footer";
 import { GlassCard } from "@/components/glass-card";
 import { OnboardingLogo } from "@/components/onboarding-logo";
 import { OnboardingQuiz } from "@/components/onboarding-quiz";
@@ -18,9 +19,9 @@ export default async function OnboardingPage() {
   const problems = serverConfigProblems();
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative flex min-h-screen flex-col">
       <Background />
-      <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col items-center justify-center px-4 py-10">
+      <div className="mx-auto flex w-full max-w-[560px] flex-1 flex-col items-center justify-center px-4 py-10">
         <OnboardingLogo />
         <div className="w-full">
           {problems.length > 0 ? (
@@ -40,6 +41,7 @@ export default async function OnboardingPage() {
           )}
         </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }
