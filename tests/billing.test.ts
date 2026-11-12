@@ -11,6 +11,7 @@ import {
   usagePeriod,
 } from "../lib/billing-config.ts";
 import { verifyStripeSignature } from "../lib/stripe-signature.ts";
+import { StripeRequestError, isMissingStripeCustomer } from "../lib/stripe-errors.ts";
 
 function header(payload: string, secret: string, seconds: number) {
   const signature = createHmac("sha256", secret).update(`${seconds}.${payload}`).digest("hex");
@@ -39,6 +40,22 @@ test("Pro access follows the paid period", () => {
   assert.equal(subscriptionEntitled({ status: "canceled", current_period_end: future, cancel_at_period_end: false }, now), false);
   assert.equal(subscriptionEntitled({ status: "past_due", current_period_end: future, cancel_at_period_end: false }, now), false);
   assert.equal(subscriptionEntitled(null, now), false);
+});
+
+test("a Stripe customer missing from this account is distinct from other missing resources", () => {
+  const missing = new StripeRequestError("No such customer: 'cus_missing'", {
+    code: "resource_missing",
+    param: "customer",
+    status: 400,
+  });
+  assert.equal(isMissingStripeCustomer(missing), true);
+  const price = new StripeRequestError("No such price: 'price_missing'", {
+    code: "resource_missing",
+    param: "line_items[0][price]",
+    status: 400,
+  });
+  assert.equal(isMissingStripeCustomer(price), false);
+  assert.equal(isMissingStripeCustomer(new Error("No such customer: 'cus_missing'")), false);
 });
 
 test("annual billing saves against twelve months and usage periods are UTC months", () => {

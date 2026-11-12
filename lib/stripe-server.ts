@@ -1,6 +1,7 @@
 import "server-only";
 
 import { PLANS, type BillingInterval } from "@/lib/billing-config";
+import { StripeRequestError } from "@/lib/stripe-errors";
 
 const STRIPE_VERSION = "2024-11-20.acacia";
 const ENTITLEMENT_VERSION = "2026-10-28.endive";
@@ -33,9 +34,17 @@ export function appOrigin(request: Request) {
   return `${proto}://${host}`;
 }
 
-type StripeErrorBody = { error?: { message?: string } };
+type StripeErrorBody = { error?: { message?: string; code?: string; param?: string } };
 
-async function stripeFetch(path: string, init?: { method?: string; body?: URLSearchParams; version?: string }) {
+function stripeError(payload: StripeErrorBody, status: number): never {
+  throw new StripeRequestError(payload.error?.message || "Stripe rejected that request.", {
+    code: payload.error?.code ?? null,
+    param: payload.error?.param ?? null,
+    status,
+  });
+}
+
+async function stripeFetch(path: string, init?: { method?: string; body?: URLSearchParams | string; version?: string }) {
   const response = await fetch(`https://api.stripe.com${path}`, {
     method: init?.method ?? "GET",
     headers: {
@@ -46,9 +55,7 @@ async function stripeFetch(path: string, init?: { method?: string; body?: URLSea
     body: init?.body,
   });
   const payload = (await response.json().catch(() => ({}))) as StripeErrorBody & Record<string, unknown>;
-  if (!response.ok) {
-    throw new Error(payload.error?.message || "Stripe rejected that request.");
-  }
+  if (!response.ok) stripeError(payload, response.status);
   return payload;
 }
 
@@ -81,6 +88,28 @@ export type StripeCheckoutSession = {
   client_reference_id: string | null;
   metadata?: Record<string, string>;
 };
+
+const PROFILE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A customer already in this Stripe account for the same Pane profile, if Stripe can search it. */
+export async function findCustomerByProfile(profileId: string) {
+  if (!PROFILE_ID.test(profileId)) return null;
+  const query = `metadata['profile_id']:'${profileId}'`;
+  let payload: Record<string, unknown>;
+  try {
+    payload = await stripeFetch(`/v1/customers/search?query=${encodeURIComponent(query)}&limit=5`);
+  } catch (error) {
+    if (error instanceof StripeRequestError && error.status === 400) return null;
+    throw error;
+  }
+  const data = Array.isArray(payload.data) ? payload.data : [];
+  for (const item of data) {
+    if (!item || typeof item !== "object" || !("id" in item) || typeof item.id !== "string") continue;
+    if ("deleted" in item && item.deleted === true) continue;
+    return item.id;
+  }
+  return null;
+}
 
 export async function createStripeCustomer(input: { profileId: string; email: string; name: string }) {
   const body = new URLSearchParams();
@@ -121,20 +150,10 @@ export async function createCheckoutSession(input: {
   const encoded =
     body.toString() +
     `&success_url=${encodeURIComponent(`${input.origin}/pro?checkout=success&session_id=`)}{CHECKOUT_SESSION_ID}`;
-  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${stripeSecret()}`,
-      "Stripe-Version": STRIPE_VERSION,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: encoded,
-  });
-  const payload = (await response.json().catch(() => ({}))) as StripeErrorBody & { id?: string; url?: string | null };
-  if (!response.ok || !payload.url) {
-    throw new Error(payload.error?.message || "Couldn't open checkout.");
-  }
-  return payload.url;
+  const payload = await stripeFetch("/v1/checkout/sessions", { method: "POST", body: encoded });
+  const url = typeof payload.url === "string" ? payload.url : "";
+  if (!url) throw new Error("Couldn't open checkout.");
+  return url;
 }
 
 export async function createPortalSession(customerId: string, origin: string) {
@@ -163,6 +182,7 @@ export function stripeId(value: string | { id: string } | null | undefined) {
 export async function retrieveCustomer(customerId: string) {
   return (await stripeFetch(`/v1/customers/${encodeURIComponent(customerId)}`)) as {
     id: string;
+    deleted?: boolean;
     metadata?: Record<string, string>;
   };
 }

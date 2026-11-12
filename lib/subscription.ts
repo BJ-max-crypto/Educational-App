@@ -13,7 +13,15 @@ import {
   usagePeriod,
 } from "@/lib/billing-config";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { listActiveLookupKeys, retrieveCustomer, retrieveSubscription, stripeId, type StripeSubscription } from "@/lib/stripe-server";
+import { isMissingStripeCustomer } from "@/lib/stripe-errors";
+import {
+  findCustomerByProfile,
+  listActiveLookupKeys,
+  retrieveCustomer,
+  retrieveSubscription,
+  stripeId,
+  type StripeSubscription,
+} from "@/lib/stripe-server";
 
 const MISSING = /subscriptions|billing_events|ai_allowances|ai_usage|entitlements|reserve_ai_answer|release_ai_answer|schema cache/i;
 
@@ -132,7 +140,11 @@ export async function refreshEntitlementForCustomer(customerId: string) {
 
 /** Asks Stripe whether this profile's customer has pane_pro_ai, then stores the answer. */
 export async function refreshEntitlement(profileId: string) {
-  const customerId = await findStripeCustomer(profileId);
+  let customerId = await findStripeCustomer(profileId);
+  if (customerId && !(await stripeCustomerUsable(customerId))) {
+    await dropMissingCustomer(profileId, customerId);
+    customerId = null;
+  }
   if (!customerId) {
     await saveEntitlement(profileId, null, false);
     return false;
@@ -208,7 +220,69 @@ export async function loadBilling(profileId: string, now = Date.now()): Promise<
 export async function findStripeCustomer(profileId: string) {
   const { rows, setupError } = await loadSubscriptionRows(profileId);
   if (setupError) throw new Error(setupError);
-  return rows.find((row) => row.provider_customer_id)?.provider_customer_id ?? null;
+  const customerId = rows.find((row) => row.provider_customer_id)?.provider_customer_id?.trim() ?? "";
+  return customerId || null;
+}
+
+async function stripeCustomerUsable(customerId: string) {
+  try {
+    const customer = await retrieveCustomer(customerId);
+    return customer.deleted !== true;
+  } catch (error) {
+    if (isMissingStripeCustomer(error)) return false;
+    throw error;
+  }
+}
+
+/** Clears a customer id Stripe does not have, so the next checkout can create one in this account. */
+export async function dropMissingCustomer(profileId: string, customerId: string) {
+  const admin = createAdminClient();
+  const removed = await admin
+    .from("subscriptions")
+    .delete()
+    .eq("user_id", profileId)
+    .eq("provider_customer_id", customerId)
+    .is("provider_subscription_id", null);
+  if (removed.error && !MISSING.test(removed.error.message)) throw new Error(removed.error.message);
+
+  const cleared = await admin
+    .from("subscriptions")
+    .update({
+      provider_customer_id: null,
+      status: "canceled",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", profileId)
+    .eq("provider_customer_id", customerId);
+  if (cleared.error && !MISSING.test(cleared.error.message)) throw new Error(cleared.error.message);
+
+  const entitlement = await admin
+    .from("entitlements")
+    .update({
+      provider_customer_id: null,
+      active: false,
+      synced_at: new Date().toISOString(),
+    })
+    .eq("user_id", profileId)
+    .eq("provider_customer_id", customerId);
+  if (entitlement.error && !MISSING.test(entitlement.error.message)) throw new Error(entitlement.error.message);
+}
+
+/**
+ * The Stripe customer for this profile in the account the server key can see.
+ * A saved id from another account, or a deleted customer, is removed and replaced.
+ */
+export async function resolveStripeCustomer(profileId: string, create: () => Promise<string>) {
+  let customerId = await findStripeCustomer(profileId);
+  if (customerId && !(await stripeCustomerUsable(customerId))) {
+    await dropMissingCustomer(profileId, customerId);
+    customerId = null;
+  }
+  if (customerId) return customerId;
+  customerId = await findCustomerByProfile(profileId);
+  if (!customerId) customerId = await create();
+  await rememberCustomer(profileId, customerId);
+  return customerId;
 }
 
 export async function rememberCustomer(profileId: string, customerId: string) {
