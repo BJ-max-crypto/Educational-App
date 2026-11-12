@@ -145,6 +145,9 @@ export async function createCheckoutSession(input: {
   body.set("subscription_data[metadata][profile_id]", input.profileId);
   body.set("line_items[0][price]", priceIdFor(input.interval));
   body.set("line_items[0][quantity]", "1");
+  // Managed Payments is on by default for some accounts and then requires a product tax code.
+  // Pane collects the subscription itself, so this session leaves that off.
+  body.set("managed_payments[enabled]", "false");
   body.set("cancel_url", `${input.origin}/pro?checkout=canceled`);
   body.set("allow_promotion_codes", "true");
   const encoded =
