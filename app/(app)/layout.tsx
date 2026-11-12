@@ -8,6 +8,8 @@ import { loadCoursework } from "@/lib/coursework-data";
 import { loadMembers } from "@/lib/members";
 import type { OnboardingMetadata } from "@/lib/onboarding";
 import { shouldAutoSync, syncFeed } from "@/lib/sync";
+import { FREE_BILLING } from "@/lib/billing-config";
+import { loadBilling } from "@/lib/subscription";
 import { getUserDb } from "@/lib/user-db";
 import { storedTimeZone } from "@/lib/user-timezone";
 
@@ -109,6 +111,7 @@ async function ReadyShell({
       mutuals={members.mutuals}
       membersNotice={members.notice}
       classmatesByCourseId={members.classmatesByCourseId}
+      billing={db ? await loadBilling(db.profileId) : FREE_BILLING}
     >
       {children}
     </AppShell>

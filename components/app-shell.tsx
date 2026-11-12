@@ -6,9 +6,11 @@ import { AssignmentAlerts } from "@/components/assignment-alerts";
 import { Background } from "@/components/background";
 import { NotificationsBadge } from "@/components/notifications-bar";
 import { SaveErrorBanner } from "@/components/sync-status";
+import { ProDialogRoot } from "@/components/pro-upgrade-dialog";
 import { TagSuggestionsPanel } from "@/components/tag-suggestions";
 import { TopNav } from "@/components/top-nav";
 import { TimeZoneReporter } from "@/components/time-zone-reporter";
+import type { BillingSummary } from "@/lib/billing-config";
 import { CourseworkProvider, type ShellUser } from "@/lib/coursework";
 import type { Assignment, Classmate, Course, FeedSummary, MutualContact, PersonConnection } from "@/lib/types";
 
@@ -23,6 +25,7 @@ export function AppShell({
   mutuals,
   membersNotice,
   classmatesByCourseId,
+  billing,
   children,
 }: {
   user: ShellUser;
@@ -35,6 +38,7 @@ export function AppShell({
   mutuals: MutualContact[];
   membersNotice: string | null;
   classmatesByCourseId: Record<string, Classmate[]>;
+  billing: BillingSummary;
   children: React.ReactNode;
 }) {
   const { user: account } = useUser();
@@ -50,7 +54,9 @@ export function AppShell({
       mutuals={mutuals}
       membersNotice={membersNotice}
       classmatesByCourseId={classmatesByCourseId}
+      billing={billing}
     >
+      <ProDialogRoot>
       <TimeZoneReporter known={knownTimeZone} />
       <AssignmentAlerts />
       <Background />
@@ -83,6 +89,7 @@ export function AppShell({
         </main>
       </div>
       <TagSuggestionsPanel />
+      </ProDialogRoot>
     </CourseworkProvider>
   );
 }

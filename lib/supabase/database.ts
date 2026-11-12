@@ -379,6 +379,97 @@ export type Database = {
         };
         Relationships: [];
       };
+      subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider: string;
+          provider_customer_id: string | null;
+          provider_subscription_id: string | null;
+          product_id: string | null;
+          price_id: string | null;
+          status: string;
+          billing_interval: string | null;
+          cancel_at_period_end: boolean;
+          started_at: string | null;
+          current_period_end: string | null;
+          canceled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider?: string;
+          provider_customer_id?: string | null;
+          provider_subscription_id?: string | null;
+          product_id?: string | null;
+          price_id?: string | null;
+          status: string;
+          billing_interval?: string | null;
+          cancel_at_period_end?: boolean;
+          started_at?: string | null;
+          current_period_end?: string | null;
+          canceled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          provider_customer_id?: string | null;
+          provider_subscription_id?: string | null;
+          product_id?: string | null;
+          price_id?: string | null;
+          status?: string;
+          billing_interval?: string | null;
+          cancel_at_period_end?: boolean;
+          started_at?: string | null;
+          current_period_end?: string | null;
+          canceled_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      entitlements: {
+        Row: {
+          user_id: string;
+          lookup_key: string;
+          active: boolean;
+          provider_customer_id: string | null;
+          synced_at: string;
+        };
+        Insert: {
+          user_id: string;
+          lookup_key: string;
+          active?: boolean;
+          provider_customer_id?: string | null;
+          synced_at?: string;
+        };
+        Update: {
+          lookup_key?: string;
+          active?: boolean;
+          provider_customer_id?: string | null;
+          synced_at?: string;
+        };
+        Relationships: [];
+      };
+      billing_events: {
+        Row: { id: string; type: string; received_at: string };
+        Insert: { id: string; type: string; received_at?: string };
+        Update: { type?: string };
+        Relationships: [];
+      };
+      ai_allowances: {
+        Row: { tier: string; monthly_limit: number };
+        Insert: { tier: string; monthly_limit: number };
+        Update: { monthly_limit?: number };
+        Relationships: [];
+      };
+      ai_usage: {
+        Row: { user_id: string; period_start: string; used: number; updated_at: string };
+        Insert: { user_id: string; period_start: string; used?: number; updated_at?: string };
+        Update: { used?: number; updated_at?: string };
+        Relationships: [];
+      };
       plus_limits: {
         Row: {
           user_id: string;
@@ -476,7 +567,16 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      reserve_ai_answer: {
+        Args: { p_user_id: string; p_period: string; p_limit: number };
+        Returns: number;
+      };
+      release_ai_answer: {
+        Args: { p_user_id: string; p_period: string };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

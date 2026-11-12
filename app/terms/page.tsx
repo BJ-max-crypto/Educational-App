@@ -23,6 +23,11 @@ export default function TermsPage() {
               show your name to other students.
             </p>
             <p>You can stop using Pane and sign out at any time.</p>
+            <p>
+              Pane Pro renews each month or each year until you cancel. You can cancel from Profile. Pane Pro stays on
+              until the end of the period you already paid for, then the account returns to Pane Free. Payments are
+              handled by Stripe.
+            </p>
           </div>
         </GlassCard>
       </div>

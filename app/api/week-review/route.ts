@@ -1,7 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { AI_MIGRATION, AiError, askClaude } from "@/lib/ai";
-import { isPlusWall, PLUS_WALL, withAiCredit } from "@/lib/ai-credits";
+import { aiAccessResult, assertPremium, withPremiumAi } from "@/lib/ai-access";
+import type { AiAccessCode } from "@/lib/billing-config";
 import { cacheIsFresh, readAiNote, writeAiNote } from "@/lib/ai-cache";
 import { loadCoursework } from "@/lib/coursework-data";
 import { getBusyBlocks, type CalendarState } from "@/lib/google-calendar";
@@ -23,6 +24,7 @@ export type WeekReviewResponse = {
   items: WeekReviewItem[];
   generatedAt: string | null;
   error?: string;
+  code?: AiAccessCode;
 };
 
 const SYSTEM = [
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
     if (!userId) return empty("Sign in again.", 401);
     const db = await getUserDb(userId);
     if (!db) return empty("Finish onboarding first.", 404);
+    await assertPremium(db.profileId);
     const tzParam = request.nextUrl.searchParams.get("tz");
     const timeZone = isValidZone(tzParam) ? tzParam : "UTC";
     const now = Date.now();
@@ -111,28 +114,36 @@ export async function POST(request: NextRequest) {
       .sort((a, b) => a.offset - b.offset)
       .slice(0, 40)
       .map(({ title, course, due }) => ({ title, course, due }));
-    const answer = await withAiCredit(db.profileId, () =>
-      askClaude({
+    const produced = await withPremiumAi(db.profileId, async () => {
+      const answer = await askClaude({
         system: SYSTEM,
         user: input.text,
         maxTokens: 900,
-      }),
-    );
-    const review = cleanReview(answer.text);
-    if (!review) throw new AiError("The AI service returned an empty answer. Try again.");
+      });
+      const review = cleanReview(answer.text);
+      if (!review) throw new AiError("The AI service returned an empty answer. Try again.");
+      return { answer, review };
+    });
+    const { answer, review } = produced.value;
     const heading = new Intl.DateTimeFormat("en-US", { timeZone, month: "long", day: "numeric", year: "numeric" }).format(new Date(now));
     const generatedAt = new Date(now).toISOString();
-    await writeAiNote(db.profileId, KIND, "week", {
-      forDate: today,
-      timeZone,
-      payload: { review, heading, items },
-      model: answer.model,
-      generatedAt,
-    });
+    try {
+      await writeAiNote(db.profileId, KIND, "week", {
+        forDate: today,
+        timeZone,
+        payload: { review, heading, items },
+        model: answer.model,
+        generatedAt,
+      });
+    } catch (error) {
+      await produced.release();
+      throw error;
+    }
     return reply({ review, heading, items, generatedAt });
   } catch (error) {
     console.error("week review failed", error);
-    const message = isPlusWall(error) ? PLUS_WALL : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't write the week review. Try again.";
-    return empty(message);
+    const access = aiAccessResult(error);
+    const message = access ? access.error : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't write the week review. Try again.";
+    return reply({ review: null, heading: null, items: [], generatedAt: null, error: message, code: access?.code });
   }
 }

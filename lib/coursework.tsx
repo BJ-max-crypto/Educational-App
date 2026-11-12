@@ -19,6 +19,7 @@ import {
   syncNow,
 } from "@/app/(app)/actions";
 import { dueThisWeek, initials, isOverdue, isSubmitted, plannerBucket } from "@/lib/dates";
+import type { BillingSummary } from "@/lib/billing-config";
 import type {
   Assignment,
   AssignmentStatus,
@@ -69,6 +70,7 @@ type CourseworkValue = {
   assignments: Assignment[];
   courseById: Map<string, Course>;
   feed: FeedSummary | null;
+  billing: BillingSummary;
   username: string | null;
   connections: PersonConnection[];
   mutuals: MutualContact[];
@@ -114,6 +116,7 @@ export function CourseworkProvider({
   courses: storedCourses,
   assignments: stored,
   feed,
+  billing,
   username,
   connections,
   mutuals,
@@ -125,6 +128,7 @@ export function CourseworkProvider({
   courses: Course[];
   assignments: Assignment[];
   feed: FeedSummary | null;
+  billing: BillingSummary;
   username: string | null;
   connections: PersonConnection[];
   mutuals: MutualContact[];
@@ -329,6 +333,7 @@ export function CourseworkProvider({
       acceptSuggestions,
       dismissSuggestions: () => dismissSuggestions(),
       feed,
+      billing,
       syncing,
       syncError,
       saveError,
@@ -398,6 +403,7 @@ export function CourseworkProvider({
     courseById,
     courses,
     createCourse,
+    billing,
     feed,
     membersNotice,
     now,

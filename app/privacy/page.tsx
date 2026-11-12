@@ -25,9 +25,9 @@ export default function PrivacyPage() {
             <p>
               Assignment titles are sent to the AI service only when you ask for a breakdown, a priority estimate, a
               course suggestion, a week review, or a weekly summary. A priority letter is Pane&apos;s estimate, not a
-              grade. A credit cap applies only to accounts listed for it in the database. When that cap is used up,
-              Pane says Get Pane Plus. If you turn on assignment alerts, Pane can show a notification on your device
-              with that assignment&apos;s name.
+              grade. Those AI tools are part of Pane Pro. Pane stores your subscription status, plan, and how many AI
+              answers you have used. Stripe processes the card payment. Pane does not store the card number. If you turn
+              on assignment alerts, Pane can show a notification on your device with that assignment&apos;s name.
             </p>
           </div>
         </GlassCard>

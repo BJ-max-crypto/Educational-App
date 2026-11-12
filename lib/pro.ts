@@ -1,8 +1,7 @@
 /**
- * Pro.
- * schedule-photo: the planner schedule photo can collapse.
- * week-review: a printable review of the week.
- * Do not render the word Pro, a badge, or an upgrade message.
+ * Feature ids for existing tools.
+ * schedule-photo: the planner schedule photo can collapse. It stays on Pane Free.
+ * week-review: a printable review of the week. It requires Pane Pro.
  */
 export const FEATURE = {
   schedulePhoto: "schedule-photo",

@@ -1,7 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { AI_MIGRATION, AiError, askClaude, parseJsonObject } from "@/lib/ai";
-import { isPlusWall, PLUS_WALL, withAiCredit } from "@/lib/ai-credits";
+import { aiAccessResult, assertPremium, withPremiumAi } from "@/lib/ai-access";
+import type { AiAccessCode } from "@/lib/billing-config";
 import { cacheIsFresh, readAiNote, writeAiNote } from "@/lib/ai-cache";
 import { coerceTier, dueDayOffset, type PriorityTier } from "@/lib/priority-tier";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -17,6 +18,7 @@ export type PriorityLabelsResponse = {
   labels: Record<string, PriorityTier> | null;
   generatedAt: string | null;
   error?: string;
+  code?: AiAccessCode;
 };
 
 const SYSTEM = [
@@ -83,17 +85,20 @@ async function generate(profileId: string, now: number, timeZone: string, today:
   const items = await loadItems(profileId, now, timeZone);
   const labels: Record<string, PriorityTier> = {};
   let model = "none";
+  let release = async () => {};
   if (items.length) {
     const list = items.map((item) => `${item.id} | ${item.course} | ${item.due} | ${item.title}`).join("\n");
-    const answer = await withAiCredit(profileId, () =>
-      askClaude({
+    const produced = await withPremiumAi(profileId, async () => {
+      const answer = await askClaude({
         system: SYSTEM,
         user: `Today is ${today}. Label every item.\n${list}`,
         maxTokens: 900,
-      }),
-    );
-    model = answer.model;
-    const json = parseJsonObject(answer.text);
+      });
+      return { answer, json: parseJsonObject(answer.text) };
+    });
+    release = produced.release;
+    model = produced.value.answer.model;
+    const json = produced.value.json;
     const rows = Array.isArray(json.labels) ? json.labels : [];
     const byId = new Map<string, string>();
     for (const row of rows) {
@@ -105,13 +110,18 @@ async function generate(profileId: string, now: number, timeZone: string, today:
     for (const item of items) labels[item.id] = coerceTier(item.offset, byId.get(item.id));
   }
   const generatedAt = new Date(now).toISOString();
-  await writeAiNote(profileId, KIND, SUBJECT, {
-    forDate: today,
-    timeZone,
-    payload: { labels },
-    model,
-    generatedAt,
-  });
+  try {
+    await writeAiNote(profileId, KIND, SUBJECT, {
+      forDate: today,
+      timeZone,
+      payload: { labels },
+      model,
+      generatedAt,
+    });
+  } catch (error) {
+    await release();
+    throw error;
+  }
   return { labels, generatedAt };
 }
 
@@ -124,6 +134,23 @@ async function handle(request: NextRequest, refresh: boolean) {
   const today = localDate(now, timeZone);
   const db = await getUserDb(userId);
   if (!db) return empty("Finish onboarding first.", 404);
+  try {
+    await assertPremium(db.profileId);
+  } catch (error) {
+    const access = aiAccessResult(error);
+    if (access && !refresh) {
+      return NextResponse.json<PriorityLabelsResponse>({ labels: null, generatedAt: null, code: access.code });
+    }
+    if (access) {
+      return NextResponse.json<PriorityLabelsResponse>({
+        labels: null,
+        generatedAt: null,
+        error: access.error,
+        code: access.code,
+      });
+    }
+    throw error;
+  }
 
   const cached = await readAiNote(db.profileId, KIND, SUBJECT);
   if (cached === "missing") return refresh ? empty(AI_MIGRATION) : empty();
@@ -141,11 +168,13 @@ async function handle(request: NextRequest, refresh: boolean) {
     return NextResponse.json<PriorityLabelsResponse>(created);
   } catch (error) {
     console.error("priority labels failed", error);
-    const message = isPlusWall(error) ? PLUS_WALL : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't label priorities. Try again.";
+    const access = aiAccessResult(error);
+    const message = access ? access.error : error instanceof AiError ? error.message : error instanceof Error && error.message === AI_MIGRATION ? AI_MIGRATION : "Couldn't label priorities. Try again.";
     return NextResponse.json<PriorityLabelsResponse>({
       labels: cached && cached.forDate === today ? asLabels(cached.payload) : null,
       generatedAt: cached && cached.forDate === today ? cached.generatedAt : null,
       error: message,
+      code: access?.code,
     });
   }
 }

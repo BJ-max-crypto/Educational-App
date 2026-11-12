@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { AiAccessCode } from "@/lib/billing-config";
 import type { PriorityLabelsResponse } from "@/app/api/priority-labels/route";
 import type { WeekReviewResponse } from "@/app/api/week-review/route";
 import { GlassCard } from "@/components/glass-card";
 import { SparkleIcon } from "@/components/sparkle-icon";
+import { useOpenProUpgrade } from "@/components/pro-upgrade-dialog";
+import { UpgradeNote } from "@/components/upgrade-note";
 import { clientTimeZone } from "@/lib/client-zone";
+import { useCoursework } from "@/lib/coursework";
 import { FEATURE } from "@/lib/pro";
 
 export function AiToolsMenu({
@@ -17,9 +21,12 @@ export function AiToolsMenu({
   onResult: (data: PriorityLabelsResponse) => void;
   onReview: (data: WeekReviewResponse) => void;
 }) {
+  const { billing } = useCoursework();
+  const openPro = useOpenProUpgrade();
+  const locked = billing.tier !== "pro";
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"generate" | "refresh" | "review" | null>(null);
-  const [note, setNote] = useState<{ text: string; problem: boolean } | null>(null);
+  const [note, setNote] = useState<{ text: string; problem: boolean; code?: AiAccessCode } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,7 +57,7 @@ export function AiToolsMenu({
     onResult(next);
     setNote(
       next.error
-        ? { text: next.error, problem: true }
+        ? { text: next.error, problem: true, code: next.code }
         : { text: "Priority labels are on this week's list.", problem: false },
     );
     setBusy(null);
@@ -74,7 +81,7 @@ export function AiToolsMenu({
       onReview(next);
       setOpen(false);
     } else {
-      setNote({ text: next.error ?? "Couldn't write the week review. Try again.", problem: true });
+      setNote({ text: next.error ?? "Couldn't write the week review. Try again.", problem: true, code: next.code });
     }
     setBusy(null);
   }
@@ -94,10 +101,29 @@ export function AiToolsMenu({
         <div data-m="ai-menu" className="absolute right-0 top-12 z-30 w-[min(18rem,calc(100vw-3rem))]">
           <GlassCard solid className="p-3 text-left">
             <p className="px-3 pb-1 text-[12px] font-semibold tracking-[0.06em] text-[#5b6478]">AI TOOLS</p>
+            {billing.tier === "pro" ? (
+              <p className="px-3 pb-2 text-[12px] text-[#5b6478]">
+                {billing.remaining} of {billing.allowance} AI answers left this month.
+              </p>
+            ) : (
+              <div className="px-3 pb-2">
+                <p className="text-[12px] leading-relaxed text-[#5b6478]">
+                  Priority labels mark this week A, B, or C. Print week review writes a page you can print. Both are part of Pane Pro.
+                </p>
+                <UpgradeNote code="pro_required" />
+              </div>
+            )}
             <button
               type="button"
-              disabled={busy !== null}
-              onClick={() => void run(false)}
+              disabled={busy !== null || (locked && !openPro)}
+              onClick={() => {
+                if (locked) {
+                  setOpen(false);
+                  openPro?.();
+                  return;
+                }
+                void run(false);
+              }}
               className="w-full rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
             >
               {busy === "generate" ? "Generating…" : "Generate priority labels"}
@@ -105,8 +131,15 @@ export function AiToolsMenu({
             <button
               type="button"
               data-feature={FEATURE.weekReview}
-              disabled={busy !== null}
-              onClick={() => void printReview()}
+              disabled={busy !== null || (locked && !openPro)}
+              onClick={() => {
+                if (locked) {
+                  setOpen(false);
+                  openPro?.();
+                  return;
+                }
+                void printReview();
+              }}
               className="w-full rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
             >
               {busy === "review" ? "Writing…" : "Print week review"}
@@ -114,17 +147,30 @@ export function AiToolsMenu({
             {hasLabels ? (
               <button
                 type="button"
-                disabled={busy !== null}
-                onClick={() => void run(true)}
+                disabled={busy !== null || (locked && !openPro)}
+                onClick={() => {
+                  if (locked) {
+                    setOpen(false);
+                    openPro?.();
+                    return;
+                  }
+                  void run(true);
+                }}
                 className="w-full rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
               >
                 {busy === "refresh" ? "Refreshing…" : "Refresh priority labels"}
               </button>
             ) : null}
             {note ? (
-              <p role="status" className={`px-3 py-2 text-[12px] ${note.problem ? "font-medium text-[#e5484d]" : "text-[#5b6478]"}`}>
-                {note.text}
-              </p>
+              <div className="px-3 py-2">
+                {note.code ? (
+                  <UpgradeNote code={note.code} message={note.text} />
+                ) : (
+                  <p role="status" className={`text-[12px] ${note.problem ? "font-medium text-[#e5484d]" : "text-[#5b6478]"}`}>
+                    {note.text}
+                  </p>
+                )}
+              </div>
             ) : null}
           </GlassCard>
         </div>

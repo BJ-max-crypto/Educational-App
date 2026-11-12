@@ -5,11 +5,17 @@ import { createPortal } from "react-dom";
 import type { AssignmentAiResponse } from "@/app/api/assignment-ai/route";
 import { GlassCard } from "@/components/glass-card";
 import { SparkleIcon } from "@/components/sparkle-icon";
+import { useOpenProUpgrade } from "@/components/pro-upgrade-dialog";
+import { UpgradeNote } from "@/components/upgrade-note";
 import { clientTimeZone } from "@/lib/client-zone";
+import { useCoursework } from "@/lib/coursework";
 
 type Action = "breakdown" | "reason";
 
 export function AssignmentAi({ assignmentId, title }: { assignmentId: string; title: string }) {
+  const { billing } = useCoursework();
+  const openPro = useOpenProUpgrade();
+  const locked = billing.tier !== "pro";
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<Action | null>(null);
   const [shown, setShown] = useState<Action | null>(null);
@@ -68,19 +74,43 @@ export function AssignmentAi({ assignmentId, title }: { assignmentId: string; ti
     <div ref={popover} data-m="ai-pop" className="absolute right-0 top-9 z-30 w-[min(20rem,calc(100vw-2rem))]">
       <GlassCard solid className="p-4 text-left">
         <p className="text-[12px] font-semibold tracking-[0.06em] text-[#5b6478]">THIS ASSIGNMENT</p>
+        {billing.tier === "pro" ? null : (
+          <div className="mt-2">
+            <p className="text-[12px] leading-relaxed text-[#5b6478]">
+              Break this down writes a few steps. Why this priority explains the estimate. Both are part of Pane Pro.
+            </p>
+            <div className="mt-2">
+              <UpgradeNote code="pro_required" />
+            </div>
+          </div>
+        )}
         <div className="mt-2 flex flex-col gap-1">
           <button
             type="button"
-            disabled={busy !== null}
-            onClick={() => void run("breakdown")}
+            disabled={busy !== null || (locked && !openPro)}
+            onClick={() => {
+              if (locked) {
+                setOpen(false);
+                openPro?.();
+                return;
+              }
+              void run("breakdown");
+            }}
             className="rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
           >
             {busy === "breakdown" ? "Breaking it down…" : "Break this down"}
           </button>
           <button
             type="button"
-            disabled={busy !== null}
-            onClick={() => void run("reason")}
+            disabled={busy !== null || (locked && !openPro)}
+            onClick={() => {
+              if (locked) {
+                setOpen(false);
+                openPro?.();
+                return;
+              }
+              void run("reason");
+            }}
             className="rounded-[14px] px-3 py-2 text-left text-[14px] font-semibold text-[#14213d] hover:bg-white/70 disabled:opacity-60"
           >
             {busy === "reason" ? "Thinking…" : "Why this priority"}
@@ -100,9 +130,9 @@ export function AssignmentAi({ assignmentId, title }: { assignmentId: string; ti
           </div>
         ) : null}
         {visible?.error ? (
-          <p role="alert" className="mt-3 text-[13px] font-medium text-[#e5484d]">
-            {visible.error}
-          </p>
+          <div className="mt-3">
+            <UpgradeNote code={visible.code} message={visible.error} />
+          </div>
         ) : null}
         {visible && !visible.error && (visible.steps || visible.text) ? (
           <button

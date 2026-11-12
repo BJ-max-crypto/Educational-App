@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import type { CourseMatchResponse } from "@/app/api/course-match/route";
+import { useOpenProUpgrade } from "@/components/pro-upgrade-dialog";
+import { UpgradeNote } from "@/components/upgrade-note";
 import { clientTimeZone } from "@/lib/client-zone";
+import { useCoursework } from "@/lib/coursework";
 import type { SchoolCourseHit } from "@/lib/school-course-match";
 
 export function CourseSuggest({
@@ -22,6 +25,9 @@ export function CourseSuggest({
   onUseCourse?: (courseId: string) => void;
   onUseSchool?: (course: SchoolCourseHit) => void;
 }) {
+  const { billing } = useCoursework();
+  const openPro = useOpenProUpgrade();
+  const locked = billing.tier !== "pro";
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<CourseMatchResponse | null>(null);
   const ready = Boolean(assignmentId) || name.trim().length >= 2;
@@ -52,16 +58,28 @@ export function CourseSuggest({
     <div className="max-w-[240px]">
       <button
         type="button"
-        disabled={!ready || busy || disabled}
-        onClick={() => void suggest()}
+        disabled={locked ? !openPro : !ready || busy || disabled}
+        onClick={() => {
+          if (locked) {
+            openPro?.();
+            return;
+          }
+          void suggest();
+        }}
         className="text-left text-[12px] font-semibold text-[#4f7cff] disabled:opacity-60"
       >
         {busy ? "Checking…" : buttonLabel}
       </button>
+      {billing.tier === "pro" ? null : (
+        <div className="mt-1">
+          <p className="text-[12px] text-[#5b6478]">A course suggestion is part of Pane Pro. Nothing is applied until you choose it.</p>
+          <UpgradeNote code="pro_required" />
+        </div>
+      )}
       {result?.error ? (
-        <p role="alert" className="mt-1 text-[12px] font-medium text-[#e5484d]">
-          {result.error}
-        </p>
+        <div className="mt-1">
+          <UpgradeNote code={result.code} message={result.error} />
+        </div>
       ) : null}
       {result && !result.error && result.label ? (
         <p className="mt-1 text-[12px] text-[#14213d]">
