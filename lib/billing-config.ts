@@ -69,6 +69,11 @@ export const PRO_FEATURES = [
     title: "Course suggestion",
     detail: "A suggested class while you create one. Nothing is applied until you choose Use this.",
   },
+  {
+    id: "class-labels",
+    title: "Class label assist",
+    detail: "Suggests which of your classes an unsorted assignment belongs to. Nothing is tagged until you apply it.",
+  },
 ] as const;
 
 export const FREE_FEATURES = [

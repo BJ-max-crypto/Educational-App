@@ -133,7 +133,7 @@ export function ProPlanCompare({
         <article className="flex h-full flex-col rounded-[22px] border-2 border-[#4f7cff] bg-[#eef3ff] px-5 py-5 shadow-[0_10px_28px_rgba(79,124,255,0.12)]">
           <p className="text-[13px] text-[#5b6478]">Pro</p>
           <h3 className="mt-3 text-[20px] font-semibold text-[#14213d]">AI for your week</h3>
-          <p className="mt-1 text-[14px] text-[#5b6478]">Summaries, priorities, and steps from your assignments.</p>
+          <p className="mt-1 text-[14px] text-[#5b6478]">Summaries, priorities, class labels, and steps from your assignments.</p>
           {pro ? (
             <button
               type="button"
