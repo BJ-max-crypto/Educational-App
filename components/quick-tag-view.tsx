@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { EnhanceClassLabels } from "@/components/class-label-enhance";
 import { CourseSelect } from "@/components/course-select";
 import { SchoolCourseMatches } from "@/components/school-course-matches";
 import { GlassCard } from "@/components/glass-card";
@@ -67,6 +68,12 @@ export function QuickTagView() {
         once. Pane remembers it by its Schoology ID and applies it on every sync. Similar items are
         grouped so you can name the class once.
       </p>
+      <div className="mt-4">
+        <EnhanceClassLabels />
+        <p className="mt-2 max-w-[640px] text-[13px] text-[#5b6478]">
+          Pane Pro can suggest a class for unsorted items. You choose what gets tagged.
+        </p>
+      </div>
 
       <ClassBatches />
 
