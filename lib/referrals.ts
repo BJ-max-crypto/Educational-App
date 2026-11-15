@@ -495,6 +495,7 @@ export async function loadReferralSummary(input: { profileId: string; clerkUserI
     return {
       state,
       percentOff: promo.percentOff,
+      activeDays: promo.activeDays,
       link,
       successful,
       rewardsEarned,

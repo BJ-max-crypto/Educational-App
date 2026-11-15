@@ -16,6 +16,7 @@ export type PromotionConfig = {
 export type ReferralSummary = {
   state: PromotionState;
   percentOff: number;
+  activeDays: number;
   link: string | null;
   successful: number;
   rewardsEarned: number;
