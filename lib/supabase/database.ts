@@ -565,6 +565,113 @@ export type Database = {
         };
         Relationships: [];
       };
+      referral_promotions: {
+        Row: {
+          id: string;
+          enabled: boolean;
+          starts_at: string;
+          ends_at: string;
+          percent_off: number;
+          active_days: number;
+          max_rewards: number;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          enabled?: boolean;
+          starts_at: string;
+          ends_at: string;
+          percent_off: number;
+          active_days: number;
+          max_rewards: number;
+          updated_at?: string;
+        };
+        Update: {
+          enabled?: boolean;
+          starts_at?: string;
+          ends_at?: string;
+          percent_off?: number;
+          active_days?: number;
+          max_rewards?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      referral_codes: {
+        Row: {
+          profile_id: string;
+          clerk_user_id: string;
+          code: string;
+          created_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          clerk_user_id: string;
+          code: string;
+          created_at?: string;
+        };
+        Update: {
+          code?: string;
+        };
+        Relationships: [];
+      };
+      referrals: {
+        Row: {
+          id: string;
+          promotion_id: string;
+          referrer_profile_id: string;
+          referrer_clerk_id: string;
+          referred_profile_id: string;
+          referred_clerk_id: string;
+          code: string;
+          status: string;
+          created_at: string;
+          qualified_at: string | null;
+          rewarded_at: string | null;
+          stripe_coupon_id: string | null;
+          stripe_subscription_id: string | null;
+          reject_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          promotion_id: string;
+          referrer_profile_id: string;
+          referrer_clerk_id: string;
+          referred_profile_id: string;
+          referred_clerk_id: string;
+          code: string;
+          status: string;
+          created_at?: string;
+          qualified_at?: string | null;
+          rewarded_at?: string | null;
+          stripe_coupon_id?: string | null;
+          stripe_subscription_id?: string | null;
+          reject_reason?: string | null;
+        };
+        Update: {
+          status?: string;
+          qualified_at?: string | null;
+          rewarded_at?: string | null;
+          stripe_coupon_id?: string | null;
+          stripe_subscription_id?: string | null;
+          reject_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      user_active_days: {
+        Row: {
+          profile_id: string;
+          active_on: string;
+        };
+        Insert: {
+          profile_id: string;
+          active_on: string;
+        };
+        Update: {
+          active_on?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -575,6 +682,10 @@ export type Database = {
       release_ai_answer: {
         Args: { p_user_id: string; p_period: string };
         Returns: undefined;
+      };
+      qualify_referral: {
+        Args: { p_id: string; p_max: number };
+        Returns: string;
       };
     };
     Enums: Record<string, never>;
