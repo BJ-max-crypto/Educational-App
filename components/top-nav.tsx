@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { MouseEvent } from "react";
 import { cn } from "@/lib/cn";
 
 const tabs = [
@@ -46,15 +47,29 @@ function isActive(pathname: string, href: string) {
   return pathname.startsWith(href);
 }
 
+function playPill(event: MouseEvent<HTMLAnchorElement>) {
+  if (window.matchMedia("(min-width: 48rem), (prefers-reduced-motion: reduce)").matches) return;
+  const indicator = event.currentTarget.parentElement?.querySelector("[data-m='nav-indicator']");
+  if (!(indicator instanceof HTMLElement)) return;
+  indicator.getAnimations().forEach((animation) => animation.cancel());
+  indicator.animate(
+    [{ scale: "1 1" }, { scale: "1.14 0.92", offset: 0.38 }, { scale: "1 1" }],
+    { duration: 560, easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
+  );
+}
+
 export function TopNav() {
   const pathname = usePathname();
+  const activeIndex = tabs.findIndex((tab) => isActive(pathname, tab.href));
 
   return (
     <nav
       aria-label="Primary"
       data-m="nav"
+      data-tab={activeIndex >= 0 ? activeIndex : undefined}
       className="flex items-center gap-1 rounded-full border border-white/90 bg-white/50 p-1.5 shadow-[0_12px_32px_rgba(51,64,128,0.12)] backdrop-blur-[14px]"
     >
+      <span data-m="nav-indicator" className="hidden" aria-hidden />
       {tabs.map((tab) => {
         const active = isActive(pathname, tab.href);
         return (
@@ -63,6 +78,7 @@ export function TopNav() {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             data-m="nav-tab"
+            onClick={playPill}
             className={cn(
               "rounded-full px-4 py-2.5 text-[15px] leading-none transition-[transform,box-shadow,background-color,color] duration-150 ease-out hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:px-6",
               active
