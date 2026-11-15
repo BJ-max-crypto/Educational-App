@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AssignmentRow } from "@/components/assignment-row";
 import { ClassLink } from "@/components/class-link";
+import { EnhanceClassLabels } from "@/components/class-label-enhance";
 import { CourseSelect } from "@/components/course-select";
 import { GlassCard } from "@/components/glass-card";
 import { LeaveClassButton } from "@/components/leave-class-button";
@@ -106,14 +107,17 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
                 Quick tag all
               </Link>
             ) : unsortedAssignments.length ? (
-              <button
-                type="button"
-                onClick={() => void findSimilar(course.id)}
-                data-m="tap"
-                className="ml-auto rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] motion-reduce:transition-none"
-              >
-                Find similar in Unsorted
-              </button>
+              <div className="ml-auto flex flex-wrap justify-end gap-2">
+                <EnhanceClassLabels courseId={course.id} />
+                <button
+                  type="button"
+                  onClick={() => void findSimilar(course.id)}
+                  data-m="tap"
+                  className="rounded-full bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)] transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(51,64,128,0.16)] motion-reduce:transition-none"
+                >
+                  Find similar in Unsorted
+                </button>
+              </div>
             ) : null}
           </div>
           <div className="mt-4 space-y-3">
