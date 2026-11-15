@@ -166,6 +166,15 @@ html[data-theme="dark"] [data-m="avatar"] a {
   border-color: rgba(255, 255, 255, 0.42);
 }
 
+/* The account QR has to stay dark-on-white or a camera cannot read it. */
+[data-qr] {
+  background: #ffffff;
+}
+
+html[data-theme="dark"] [data-qr] {
+  background: #ffffff !important;
+}
+
 html:not([data-theme="dark"]) [data-m~="nav-icon"],
 html:not([data-theme="dark"]) [data-m~="nav-icon"] * {
   color: inherit;

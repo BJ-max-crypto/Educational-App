@@ -19,6 +19,7 @@ import { initials } from "@/lib/dates";
 import { connectionLabel, publicLabel } from "@/lib/identity";
 import { useCoursework } from "@/lib/coursework";
 import type { MutualContact, PersonConnection } from "@/lib/types";
+import { ScanPaneCodeButton } from "@/components/account-qr";
 import { SchoolInvite } from "@/components/school-invite";
 
 function memberColor(id: string) {
@@ -161,6 +162,9 @@ export function FriendsView() {
                 {username ? "Change" : "Save"}
               </button>
             </form>
+            <div className="mt-3">
+              <ScanPaneCodeButton className="h-11 rounded-full bg-white/95 px-4 text-[14px] font-semibold text-[#14213d] shadow-[0_4px_12px_rgba(51,64,128,0.12)]" />
+            </div>
             <label className="mt-3 block">
               <span className="sr-only">Search people</span>
               <input

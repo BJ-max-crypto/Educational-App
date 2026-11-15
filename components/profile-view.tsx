@@ -13,6 +13,7 @@ import { useCoursework } from "@/lib/coursework";
 import { AppearanceSetting } from "@/components/appearance-setting";
 import { SubscriptionSetting } from "@/components/subscription-setting";
 import { AssignmentAlertSetting } from "@/components/assignment-alerts";
+import { AccountQr } from "@/components/account-qr";
 import { SchoolInvite } from "@/components/school-invite";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -99,6 +100,7 @@ export function ProfileView() {
           Sign out
         </button>
       </GlassCard>
+      <AccountQr />
       <SchoolInvite />
       <Link
         href="/profile/friends"
