@@ -24,6 +24,10 @@ export default function PrivacyPage() {
             </p>
             <p>Other students see you only after you both approve a connection.</p>
             <p>
+              If you open a classmate&apos;s referral link before you create an account, Pane stores that you joined
+              from it. The classmate can earn a discount on one monthly bill. You do not.
+            </p>
+            <p>
               Assignment titles are sent to the AI service only when you ask for a breakdown, a priority estimate, a
               course suggestion, a class label, a week review, or a weekly summary. A priority letter is Pane&apos;s estimate, not a
               grade. Those AI tools are part of Pane Pro. Pane stores your subscription status, plan, and how many AI

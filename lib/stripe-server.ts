@@ -1,6 +1,7 @@
 import "server-only";
 
 import { PLANS, type BillingInterval } from "@/lib/billing-config";
+import { couponIdsFromInvoice, REFERRAL_COUPON_DURATION, referralCouponId } from "@/lib/referral-rules";
 import { StripeRequestError } from "@/lib/stripe-errors";
 
 const STRIPE_VERSION = "2024-11-20.acacia";
@@ -44,13 +45,17 @@ function stripeError(payload: StripeErrorBody, status: number): never {
   });
 }
 
-async function stripeFetch(path: string, init?: { method?: string; body?: URLSearchParams | string; version?: string }) {
+async function stripeFetch(
+  path: string,
+  init?: { method?: string; body?: URLSearchParams | string; version?: string; idempotencyKey?: string },
+) {
   const response = await fetch(`https://api.stripe.com${path}`, {
     method: init?.method ?? "GET",
     headers: {
       Authorization: `Bearer ${stripeSecret()}`,
       "Stripe-Version": init?.version ?? STRIPE_VERSION,
       ...(init?.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+      ...(init?.idempotencyKey ? { "Idempotency-Key": init.idempotencyKey } : {}),
     },
     body: init?.body,
   });
@@ -209,4 +214,83 @@ export async function listActiveLookupKeys(customerId: string) {
     startingAfter = next;
   }
   return keys;
+}
+
+function priceProduct(payload: Record<string, unknown>) {
+  const product = payload.product;
+  if (typeof product === "string") return product;
+  if (product && typeof product === "object" && "id" in product && typeof product.id === "string") return product.id;
+  return null;
+}
+
+/** The monthly price's product, when it is a different product from the annual price. */
+async function monthlyOnlyProduct() {
+  try {
+    const monthly = await stripeFetch(`/v1/prices/${encodeURIComponent(priceIdFor("month"))}`);
+    const annual = await stripeFetch(`/v1/prices/${encodeURIComponent(priceIdFor("year"))}`);
+    const monthProduct = priceProduct(monthly);
+    const yearProduct = priceProduct(annual);
+    if (monthProduct && yearProduct && monthProduct !== yearProduct) return monthProduct;
+  } catch (error) {
+    if (error instanceof StripeConfigError) return null;
+    throw error;
+  }
+  return null;
+}
+
+/**
+ * A one-time percent coupon. This does not change the $4.99 or $39.99 prices.
+ * The coupon is created if it is missing. Calling it again returns the same id.
+ */
+export async function ensureReferralCoupon(percentOff: number) {
+  const id = referralCouponId(percentOff);
+  try {
+    await stripeFetch(`/v1/coupons/${encodeURIComponent(id)}`);
+    return id;
+  } catch (error) {
+    if (!(error instanceof StripeRequestError) || error.status !== 404) throw error;
+  }
+  const body = new URLSearchParams();
+  body.set("id", id);
+  body.set("percent_off", String(Math.round(percentOff)));
+  body.set("duration", REFERRAL_COUPON_DURATION);
+  body.set("name", "Pane referral");
+  const product = await monthlyOnlyProduct();
+  if (product) body.set("applies_to[products][0]", product);
+  try {
+    await stripeFetch("/v1/coupons", { method: "POST", body, idempotencyKey: `create-${id}` });
+  } catch (error) {
+    if (!(error instanceof StripeRequestError) || error.code !== "resource_already_exists") throw error;
+  }
+  return id;
+}
+
+export async function subscriptionCouponIds(subscriptionId: string) {
+  const payload = await stripeFetch(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}`);
+  const discount = payload.discount;
+  const discounts = Array.isArray(payload.discounts) ? payload.discounts : [];
+  return couponIdsFromInvoice({
+    discount: discount && typeof discount === "object" ? (discount as { coupon?: { id?: string } | string | null }) : null,
+    discounts: discounts as Array<{ coupon?: { id?: string } | string | null } | string | null>,
+  });
+}
+
+/** Replaces an empty discount list with one once-coupon. Call only for a monthly subscription. */
+export async function attachOnceCoupon(subscriptionId: string, couponId: string, idempotencyKey: string) {
+  const body = new URLSearchParams();
+  body.set("discounts[0][coupon]", couponId);
+  await stripeFetch(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+    method: "POST",
+    body,
+    idempotencyKey,
+  });
+}
+
+export async function removeSubscriptionDiscount(subscriptionId: string) {
+  try {
+    await stripeFetch(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}/discount`, { method: "DELETE" });
+  } catch (error) {
+    if (error instanceof StripeRequestError && error.status === 404) return;
+    throw error;
+  }
 }

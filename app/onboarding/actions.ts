@@ -15,6 +15,7 @@ import { addExplicitCourse } from "@/lib/school-courses";
 import { isSchoolMigrationError, SCHOOL_MIGRATION } from "@/lib/school-feed";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverConfigProblems } from "@/lib/supabase/env";
+import { attributeFromCookie } from "@/lib/referrals";
 import { syncFeed } from "@/lib/sync";
 import { isValidZone } from "@/lib/timezone";
 
@@ -224,6 +225,8 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
     },
     ...(timeZone ? { privateMetadata: { timeZone } } : {}),
   });
+
+  await attributeFromCookie(profileId, userId);
 
   // A failed first import is shown on the dashboard with a retry, so it does not block onboarding.
   await syncFeed(profileId, { timeZone }).catch((error) => console.error("first sync failed", error));

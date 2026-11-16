@@ -10,6 +10,7 @@ import type { OnboardingMetadata } from "@/lib/onboarding";
 import { shouldAutoSync, syncFeed } from "@/lib/sync";
 import { FREE_BILLING } from "@/lib/billing-config";
 import { loadBilling } from "@/lib/subscription";
+import { noteReferralVisit } from "@/lib/referrals";
 import { getUserDb } from "@/lib/user-db";
 import { storedTimeZone } from "@/lib/user-timezone";
 
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <Suspense fallback={<LoadingMark />}>
       <ReadyShell
         clerkUserId={user?.id ?? null}
+        emailVerified={user?.primaryEmailAddress?.verification?.status === "verified"}
         timeZone={timeZone}
         email={email}
         fallbackName={fallbackName}
@@ -42,6 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
 async function ReadyShell({
   clerkUserId,
+  emailVerified,
   timeZone,
   email,
   fallbackName,
@@ -49,6 +52,7 @@ async function ReadyShell({
   children,
 }: {
   clerkUserId: string | null;
+  emailVerified: boolean;
   timeZone: string | null;
   email: string;
   fallbackName: string;
@@ -56,6 +60,9 @@ async function ReadyShell({
   children: React.ReactNode;
 }) {
   const db = clerkUserId ? await getUserDb(clerkUserId) : null;
+  if (db && clerkUserId) {
+    await noteReferralVisit({ profileId: db.profileId, clerkUserId, emailVerified });
+  }
   let data = await loadCoursework(db);
 
   if (db && data.feed) {

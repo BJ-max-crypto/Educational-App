@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { verifyStripeSignature } from "@/lib/stripe-signature";
 import { stripeId, type StripeCheckoutSession, type StripeSubscription } from "@/lib/stripe-server";
 import {
+  confirmReferralFromInvoice,
+  runReferralSideEffect,
+  settleReferralForSubscription,
+} from "@/lib/referrals";
+import {
   applyEntitlementSummary,
   applyStripeSubscription,
   claimBillingEvent,
@@ -69,7 +74,15 @@ async function handleEvent(event: StripeEvent) {
   if (event.type === "checkout.session.completed") {
     const session = object as StripeCheckoutSession | undefined;
     const subscriptionId = stripeId(session?.subscription);
-    if (subscriptionId) await syncStripeSubscription(subscriptionId, session?.metadata?.profile_id ?? session?.client_reference_id);
+    if (subscriptionId) {
+      await syncStripeSubscription(subscriptionId, session?.metadata?.profile_id ?? session?.client_reference_id);
+      await runReferralSideEffect(() =>
+        settleReferralForSubscription({
+          profileId: session?.metadata?.profile_id ?? session?.client_reference_id,
+          subscriptionId,
+        }),
+      );
+    }
     await refreshCustomer(session?.customer);
     return;
   }
@@ -85,6 +98,12 @@ async function handleEvent(event: StripeEvent) {
       subscription.cancel_at_period_end = false;
     }
     await applyStripeSubscription(subscription);
+    await runReferralSideEffect(() =>
+      settleReferralForSubscription({
+        profileId: subscription.metadata?.profile_id,
+        subscriptionId: subscription.id,
+      }),
+    );
     const customerId = stripeId(subscription.customer);
     if (event.type === "customer.subscription.deleted" && customerId) {
       // Stripe removes the entitlement shortly after the subscription ends.
@@ -107,6 +126,9 @@ async function handleEvent(event: StripeEvent) {
           ? subscription.id
           : null;
     if (subscriptionId) await syncStripeSubscription(subscriptionId);
+    if (event.type === "invoice.paid") {
+      await runReferralSideEffect(() => confirmReferralFromInvoice(object ?? {}));
+    }
     await refreshCustomer(object?.customer);
     return;
   }

@@ -13,8 +13,9 @@ import { useCoursework } from "@/lib/coursework";
 import { AppearanceSetting } from "@/components/appearance-setting";
 import { SubscriptionSetting } from "@/components/subscription-setting";
 import { AssignmentAlertSetting } from "@/components/assignment-alerts";
-import { AccountQr } from "@/components/account-qr";
+import { ReferralShare } from "@/components/referral-share";
 import { SchoolInvite } from "@/components/school-invite";
+import { visibleReferralSummary, type ReferralSummary } from "@/lib/referral-rules";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -25,7 +26,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ProfileView() {
+export function ProfileView({ referral = visibleReferralSummary() }: { referral?: ReferralSummary | null }) {
   const { signOut } = useClerk();
   const { user, courses, upcomingCount, overdueCount } = useCoursework();
   const syncLabel = useSyncLabel();
@@ -100,7 +101,7 @@ export function ProfileView() {
           Sign out
         </button>
       </GlassCard>
-      <AccountQr />
+      <ReferralShare summary={referral ?? visibleReferralSummary()} />
       <SchoolInvite />
       <Link
         href="/profile/friends"
