@@ -19,7 +19,7 @@ function dayLabel(days: number) {
 export function ReferralShare({ summary }: { summary: ReferralSummary }) {
   const [copied, setCopied] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  const open = summary.state === "open" && summary.link;
+  const hasLink = Boolean(summary.link);
 
   async function copy() {
     if (!summary.link) return;
@@ -60,14 +60,13 @@ export function ReferralShare({ summary }: { summary: ReferralSummary }) {
           i
         </button>
       </div>
-      {open ? (
-        <p className="mt-3 text-[14px] leading-relaxed text-[#14213d]">{explanation(summary.percentOff)}</p>
-      ) : (
-        <p className="mt-3 text-[14px] leading-relaxed text-[#14213d]">
-          {summary.state === "ended" ? "This promotion has ended." : "The referral promotion isn't open."}
-        </p>
-      )}
-      {open ? (
+      <p className="mt-3 text-[14px] leading-relaxed text-[#14213d]">{explanation(summary.percentOff)}</p>
+      {summary.state === "ended" ? (
+        <p className="mt-2 text-[13px] text-[#5b6478]">This promotion has ended. Discounts already earned still apply.</p>
+      ) : summary.state !== "open" ? (
+        <p className="mt-2 text-[13px] text-[#5b6478]">The promotion is not accepting new rewards yet.</p>
+      ) : null}
+      {hasLink ? (
         <>
           <p data-m="break" className="mt-3 break-all text-[14px] font-medium text-[#14213d]">
             {summary.link}

@@ -13,6 +13,7 @@ import {
   qualifyDecision,
   referralCouponId,
   utcDay,
+  visibleReferralSummary,
   type PromotionConfig,
   type ReferralSummary,
 } from "@/lib/referral-rules";
@@ -472,10 +473,10 @@ export async function loadReferralSummary(input: { profileId: string; clerkUserI
   try {
     const client = admin();
     const promo = await loadPromotion(client);
-    if (!promo) return null;
+    if (!promo) return visibleReferralSummary();
     const now = Date.now();
     const state = promotionState(promo, now);
-    const link = state === "open" ? `${await requestOrigin()}/r/${await ensureCode(client, input.profileId, input.clerkUserId)}` : null;
+    const link = `${await requestOrigin()}/r/${await ensureCode(client, input.profileId, input.clerkUserId)}`;
     const rows = await client
       .from("referrals")
       .select("status")
@@ -505,7 +506,7 @@ export async function loadReferralSummary(input: { profileId: string; clerkUserI
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    if (missingReferralSchema(message)) return null;
+    if (missingReferralSchema(message)) return visibleReferralSummary();
     throw error;
   }
 }

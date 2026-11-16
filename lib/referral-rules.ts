@@ -13,6 +13,20 @@ export type PromotionConfig = {
   maxRewards: number;
 };
 
+export function visibleReferralSummary(): ReferralSummary {
+  return {
+    state: "off",
+    percentOff: 20,
+    activeDays: 7,
+    link: null,
+    successful: 0,
+    rewardsEarned: 0,
+    maxRewards: 2,
+    daysLeft: null,
+    waitingForMonthly: false,
+  };
+}
+
 export type ReferralSummary = {
   state: PromotionState;
   percentOff: number;

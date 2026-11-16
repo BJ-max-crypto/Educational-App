@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { ProfileView } from "@/components/profile-view";
+import { visibleReferralSummary } from "@/lib/referral-rules";
 import { loadReferralSummary } from "@/lib/referrals";
 import { getUserDb } from "@/lib/user-db";
 
@@ -11,8 +12,8 @@ export default async function ProfilePage() {
   const referral = db && userId
     ? await loadReferralSummary({ profileId: db.profileId, clerkUserId: userId }).catch((error) => {
         console.error("referral summary failed", error);
-        return null;
+        return visibleReferralSummary();
       })
-    : null;
+    : visibleReferralSummary();
   return <ProfileView referral={referral} />;
 }

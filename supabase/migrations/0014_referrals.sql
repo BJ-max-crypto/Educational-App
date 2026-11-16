@@ -2,16 +2,9 @@
 -- Run this in the Supabase SQL editor after 0013.
 -- It does not drop or rewrite existing tables.
 --
--- The promotion is off until you turn it on. Example, a 30-day window:
---   update public.referral_promotions
---   set enabled = true,
---       starts_at = now(),
---       ends_at = now() + interval '30 days',
---       percent_off = 20,
---       active_days = 7,
---       max_rewards = 2,
---       updated_at = now()
---   where id = 'current';
+-- The first run opens a 30-day promotion. Turn it off without deleting history:
+--   update public.referral_promotions set enabled = false, updated_at = now() where id = 'current';
+-- Change the window, percent, activity days, or reward cap on the same row.
 --
 -- Turn it off without deleting referral history:
 --   update public.referral_promotions set enabled = false, updated_at = now() where id = 'current';
@@ -38,14 +31,24 @@ insert into public.referral_promotions (
 )
 values (
   'current',
-  false,
-  '2099-01-01T00:00:00Z',
-  '2099-01-31T00:00:00Z',
+  true,
+  now(),
+  now() + interval '30 days',
   20,
   7,
   2
 )
 on conflict (id) do nothing;
+
+-- Open the untouched placeholder from an earlier run of this file.
+update public.referral_promotions
+set enabled = true,
+    starts_at = now(),
+    ends_at = now() + interval '30 days',
+    updated_at = now()
+where id = 'current'
+  and enabled = false
+  and starts_at >= '2099-01-01T00:00:00Z';
 
 create table if not exists public.referral_codes (
   profile_id uuid primary key references public.profiles (id) on delete cascade,

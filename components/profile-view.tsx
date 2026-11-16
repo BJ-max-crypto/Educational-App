@@ -13,10 +13,9 @@ import { useCoursework } from "@/lib/coursework";
 import { AppearanceSetting } from "@/components/appearance-setting";
 import { SubscriptionSetting } from "@/components/subscription-setting";
 import { AssignmentAlertSetting } from "@/components/assignment-alerts";
-import { AccountQr } from "@/components/account-qr";
 import { ReferralShare } from "@/components/referral-share";
 import { SchoolInvite } from "@/components/school-invite";
-import type { ReferralSummary } from "@/lib/referral-rules";
+import { visibleReferralSummary, type ReferralSummary } from "@/lib/referral-rules";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -27,7 +26,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ProfileView({ referral = null }: { referral?: ReferralSummary | null }) {
+export function ProfileView({ referral = visibleReferralSummary() }: { referral?: ReferralSummary | null }) {
   const { signOut } = useClerk();
   const { user, courses, upcomingCount, overdueCount } = useCoursework();
   const syncLabel = useSyncLabel();
@@ -102,7 +101,7 @@ export function ProfileView({ referral = null }: { referral?: ReferralSummary | 
           Sign out
         </button>
       </GlassCard>
-      <AccountQr />
+      <ReferralShare summary={referral ?? visibleReferralSummary()} />
       <SchoolInvite />
       <Link
         href="/profile/friends"
@@ -162,7 +161,6 @@ export function ProfileView({ referral = null }: { referral?: ReferralSummary | 
         </section>
 
         <SubscriptionSetting />
-        {referral ? <ReferralShare summary={referral} /> : null}
 
         <section className="rounded-[24px] bg-white/55 px-6 py-5">
           <h2 className="text-[12px] font-semibold tracking-[0.08em] text-[#5b6478]">
