@@ -1,8 +1,12 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 
 // Auth checks live in the protected layout via auth.protect().
-// clerkMiddleware() only attaches the session.
-export default clerkMiddleware();
+// Sign-in stays on this origin. An absolute Account Portal URL drops the
+// development-instance browser token, and Clerk then rejects the browser.
+export default clerkMiddleware({
+  signInUrl: "/sign-in",
+  signUpUrl: "/sign-up",
+});
 
 export const config = {
   matcher: [
