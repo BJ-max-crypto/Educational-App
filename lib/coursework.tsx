@@ -87,7 +87,7 @@ type CourseworkValue = {
   unsortedAssignments: Assignment[];
   assignCourse: (assignmentIds: string[], courseId: string | null) => Promise<boolean>;
   createCourse: (
-    input: string | { name: string; teacher?: string; period?: string; schoolCourseId?: string },
+    input: string | { name: string; teacher?: string; period?: string; academicYear?: string; schoolCourseId?: string },
   ) => Promise<{ id: string; notice: string | null } | { error: string }>;
   /** Unsorted items that look like the same class as a course's tagged items. */
   tagSuggestions: TagSuggestions | null;
@@ -246,7 +246,7 @@ export function CourseworkProvider({
     [assignCourse, dismissSuggestions, tagSuggestions],
   );
 
-  const createCourse = useCallback(async (input: string | { name: string; teacher?: string; period?: string; schoolCourseId?: string }) => {
+  const createCourse = useCallback(async (input: string | { name: string; teacher?: string; period?: string; academicYear?: string; schoolCourseId?: string }) => {
     const result = await createCourseAction(input).catch(() => ({
       ok: false as const,
       error: "Couldn't create that course. Try again.",

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { SchoolCourseMatches } from "@/components/school-course-matches";
+import { academicYearChoices, displayAcademicYear } from "@/lib/class-match";
 import { cn } from "@/lib/cn";
 import { useCoursework } from "@/lib/coursework";
 import type { SchoolCourseHit } from "@/lib/school-course-match";
@@ -33,11 +34,15 @@ export function CourseSelect({
   label: string;
   className?: string;
 }) {
-  const { taggableCourses, createCourse } = useCoursework();
+  const { taggableCourses, createCourse, user } = useCoursework();
+  const teacherListId = useId();
+  const years = academicYearChoices();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [teacher, setTeacher] = useState("");
   const [period, setPeriod] = useState("");
+  const [year, setYear] = useState(years[0] ?? "");
+  const knownTeachers = [...new Set(taggableCourses.map((course) => course.teacher.trim()).filter(Boolean))];
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -47,6 +52,7 @@ export function CourseSelect({
     setName("");
     setTeacher("");
     setPeriod("");
+    setYear(years[0] ?? "");
     setError(null);
     setNote(null);
   }
@@ -63,6 +69,7 @@ export function CourseSelect({
     setName("");
     setTeacher("");
     setPeriod("");
+    setYear(years[0] ?? "");
     onSelect(result.id);
   }
 
@@ -74,7 +81,7 @@ export function CourseSelect({
     }
     setPending(true);
     setError(null);
-    const result = await createCourse({ name, teacher, period });
+    const result = await createCourse({ name, teacher, period, academicYear: year });
     await finish(result);
   }
 
@@ -116,18 +123,40 @@ export function CourseSelect({
           maxLength={80}
           placeholder="Teacher"
           aria-label="Teacher"
+          list={teacherListId}
           data-m="tap"
           className={controlClass}
         />
+        <datalist id={teacherListId}>
+          {knownTeachers.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
         <input
           value={period}
           onChange={(event) => setPeriod(event.target.value)}
           maxLength={40}
-          placeholder="Period (optional)"
+          placeholder="Period"
           aria-label="Period"
           data-m="tap"
           className={controlClass}
         />
+        <select
+          value={year}
+          onChange={(event) => setYear(event.target.value)}
+          aria-label="Academic year"
+          data-m="tap"
+          className={controlClass}
+        >
+          {years.map((option) => (
+            <option key={option} value={option}>
+              {displayAcademicYear(option)}
+            </option>
+          ))}
+        </select>
+        <p className="text-[12px] text-[#5b6478]">
+          {user.school ? `School: ${user.school}` : "Add your school on your profile so classmates can find this class."}
+        </p>
         <SchoolCourseMatches name={name} teacher={teacher} disabled={pending} onUse={(course) => void chooseExisting(course)} />
         <div className="flex items-center gap-2">
           <button

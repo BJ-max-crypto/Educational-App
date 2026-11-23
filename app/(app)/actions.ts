@@ -172,13 +172,22 @@ export type CourseDraft = {
   name: string;
   teacher?: string;
   period?: string;
+  academicYear?: string;
   /** Present only when the student clicked a suggestion. */
   schoolCourseId?: string;
 };
 
 /** Suggestions only. Selecting one happens in `createCourse` with `schoolCourseId`. */
 export async function searchSchoolCourses(name: string, teacher = ""): Promise<{
-  suggestions: { id: string; name: string; teacher: string; period: string | null }[];
+  suggestions: {
+    id: string;
+    name: string;
+    teacher: string;
+    period: string | null;
+    school?: string;
+    academicYear?: string | null;
+    members?: number;
+  }[];
   notice: string | null;
 }> {
   const { userId } = await auth();
