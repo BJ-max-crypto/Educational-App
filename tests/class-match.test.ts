@@ -5,6 +5,7 @@ import {
   canReuseClass,
   CLASS_CODE,
   classInviteCode,
+  classmateInviteState,
   invitationExpiry,
   invitationState,
   parseAcademicYear,
@@ -69,6 +70,14 @@ test("revoked and expired invitations cannot be used", () => {
   assert.equal(invitationState({ revokedAt: "2026-11-01T00:00:00Z", expiresAt: null }, now), "revoked");
   assert.equal(invitationState({ revokedAt: null, expiresAt: "2026-11-22T18:00:00Z" }, now), "expired");
   assert.equal(invitationExpiry("2026-2027", now), "2027-06-30T23:59:59.000Z");
+});
+
+test("a username invite stays at the same school and does not add someone twice", () => {
+  assert.equal(classmateInviteState({ self: true, member: false, pending: false, sameSchool: true }), "self");
+  assert.equal(classmateInviteState({ self: false, member: true, pending: true, sameSchool: true }), "member");
+  assert.equal(classmateInviteState({ self: false, member: false, pending: true, sameSchool: true }), "invited");
+  assert.equal(classmateInviteState({ self: false, member: false, pending: false, sameSchool: false }), "other-school");
+  assert.equal(classmateInviteState({ self: false, member: false, pending: false, sameSchool: true }), "invite");
 });
 
 test("invitation codes match the public code shape", () => {

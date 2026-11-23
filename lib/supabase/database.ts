@@ -258,6 +258,30 @@ export type Database = {
         Update: { user_id?: string; school_course_id?: string; role?: string };
         Relationships: [];
       };
+      class_member_invites: {
+        Row: {
+          id: string;
+          school_course_id: string;
+          inviter_id: string;
+          invitee_id: string;
+          status: "pending" | "accepted" | "declined";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          school_course_id: string;
+          inviter_id: string;
+          invitee_id: string;
+          status?: "pending" | "accepted" | "declined";
+        };
+        Update: {
+          status?: "pending" | "accepted" | "declined";
+          inviter_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       class_invitations: {
         Row: {
           id: string;
