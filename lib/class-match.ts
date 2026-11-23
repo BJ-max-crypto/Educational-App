@@ -144,3 +144,34 @@ export function periodLabel(period: string | null | undefined) {
   if (!text) return "";
   return /^period\b/i.test(text) ? text : `Period ${text}`;
 }
+
+export type ClassmateInviteState = "self" | "member" | "invited" | "other-school" | "invite";
+
+export type IncomingClassInvite = {
+  id: string;
+  courseName: string;
+  username: string;
+};
+
+export type ClassmateSearchHit = {
+  profileId: string;
+  username: string;
+  /** Present only after this pair has approved a connection. */
+  name: string | null;
+  school: string | null;
+  state: Exclude<ClassmateInviteState, "self">;
+};
+
+/** Who can be asked to join this class. A member wins over a pending invite. */
+export function classmateInviteState(input: {
+  self: boolean;
+  member: boolean;
+  pending: boolean;
+  sameSchool: boolean;
+}): ClassmateInviteState {
+  if (input.self) return "self";
+  if (input.member) return "member";
+  if (!input.sameSchool) return "other-school";
+  if (input.pending) return "invited";
+  return "invite";
+}

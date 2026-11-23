@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { readClassInvite, regenerateClassInvite, revokeClassInvite } from "@/app/(app)/class-actions";
 import { ClassLink } from "@/components/class-link";
+import { ClassUsernameInvite } from "@/components/class-username-invite";
 import { GlassCard } from "@/components/glass-card";
 import { MemberAvatar } from "@/components/member-avatar";
 import { StatusChip } from "@/components/status-chip";
@@ -111,8 +112,9 @@ export function ClassInvite({
     <GlassCard className="p-7">
       <h2 className="text-[22px] font-semibold text-[#14213d]">Invite classmates</h2>
       <p className="mt-1 text-[14px] text-[#5b6478]">
-        Share one link so everyone in this class joins the same group.
+        Share one link, or search a username, so everyone in this class joins the same group.
       </p>
+      <ClassUsernameInvite courseId={courseId} />
       {live?.code ? (
         <div className="mt-4">
           <p className="text-[13px] text-[#5b6478]">

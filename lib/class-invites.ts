@@ -384,6 +384,23 @@ async function panelFor(profileId: string, courseId: string, refresh: "keep" | "
   };
 }
 
+/** The signed-in student must already belong to this class group. */
+export async function requireClassMembership(profileId: string, courseId: string) {
+  try {
+    const linked = await ensureLinkedSchoolCourse(profileId, courseId);
+    if (!linked.ok) return { ok: false as const, error: linked.error };
+    const admin = createAdminClient();
+    const group = await loadGroup(admin, linked.schoolCourseId);
+    if (group === "missing" || !group) return { ok: false as const, error: CLASS_INVITE_MIGRATION };
+    const role = await membershipRole(admin, profileId, group.id);
+    if (!role) return { ok: false as const, error: "You aren't in this class." };
+    return { ok: true as const, admin, group };
+  } catch (error) {
+    console.error("requireClassMembership failed", error instanceof Error ? error.message : error);
+    return { ok: false as const, error: "Couldn't open that class." };
+  }
+}
+
 export async function loadClassInvite(profileId: string, courseId: string) {
   try {
     return await panelFor(profileId, courseId, "keep");

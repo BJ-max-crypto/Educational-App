@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { answerClassInvite, readIncomingClassInvites } from "@/app/(app)/class-actions";
 import { respondToConnection } from "@/app/(app)/member-actions";
+import type { IncomingClassInvite } from "@/lib/class-match";
 import { GlassCard } from "@/components/glass-card";
 import { publicLabel } from "@/lib/identity";
 import { batchSimilar } from "@/lib/suggest";
@@ -11,10 +13,12 @@ import { useCoursework } from "@/lib/coursework";
 
 export function NotificationsBadge() {
   const router = useRouter();
+  const pathname = usePathname();
   const { connections, assignments, courseById } = useCoursework();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [classInvites, setClassInvites] = useState<IncomingClassInvite[]>([]);
   const panel = useRef<HTMLDivElement>(null);
   const incoming = connections.filter((person) => person.status === "incoming");
   const batches = useMemo(
@@ -26,8 +30,18 @@ export function NotificationsBadge() {
       ),
     [assignments, courseById],
   );
-  const count = incoming.length + batches.length;
+  const count = incoming.length + batches.length + classInvites.length;
   const shown = open && count > 0;
+
+  useEffect(() => {
+    let current = true;
+    void readIncomingClassInvites().then((rows) => {
+      if (current) setClassInvites(rows);
+    });
+    return () => {
+      current = false;
+    };
+  }, [incoming.length, pathname]);
 
   useEffect(() => {
     if (!shown) return;
@@ -44,6 +58,22 @@ export function NotificationsBadge() {
       document.removeEventListener("keydown", onKey);
     };
   }, [shown]);
+
+  async function answerClass(id: string, accept: boolean) {
+    setPending(true);
+    setError(null);
+    const result = await answerClassInvite(id, accept).catch(() => ({
+      ok: false as const,
+      error: "Couldn't update that invitation.",
+    }));
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setClassInvites((current) => current.filter((item) => item.id !== id));
+    router.refresh();
+  }
 
   async function answer(id: string, accept: boolean) {
     setPending(true);
@@ -79,6 +109,31 @@ export function NotificationsBadge() {
         <div data-m="notes" className="absolute right-0 top-14 z-30 w-[min(20rem,calc(100vw-2rem))]">
         <GlassCard className="p-4 text-left">
           <ul className="space-y-3">
+            {classInvites.map((invite) => (
+              <li key={invite.id}>
+                <p className="text-[14px] text-[#14213d]">
+                  <span className="font-semibold">@{invite.username}</span> invited you to {invite.courseName}.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => void answerClass(invite.id, true)}
+                    className="h-8 rounded-full bg-[#14213d] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
+                  >
+                    Join
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => void answerClass(invite.id, false)}
+                    className="h-8 rounded-full px-2 text-[13px] font-semibold text-[#5b6478] disabled:opacity-60"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </li>
+            ))}
             {incoming.map((person) => (
               <li key={person.id}>
                 <p className="text-[14px] text-[#14213d]">
