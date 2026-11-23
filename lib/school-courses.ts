@@ -1,5 +1,6 @@
 import "server-only";
 
+import { academicYearLabel, canReuseClass, parseAcademicYear } from "@/lib/class-match";
 import { COURSE_COLORS } from "@/lib/course-colors";
 import { rankSchoolCourses, type SchoolCourseHit } from "@/lib/school-course-match";
 import { schoolKey } from "@/lib/school-feed";
@@ -24,6 +25,7 @@ type CourseDraft = {
   name?: string;
   teacher?: string;
   period?: string;
+  academicYear?: string;
   /** Set only after the student clicks a suggestion. Never inferred from text. */
   schoolCourseId?: string;
 };
@@ -63,24 +65,52 @@ function ilikeLiteral(value: string) {
 }
 
 async function coursesAtSchool(admin: Admin, school: string): Promise<SchoolCourseHit[] | "missing"> {
-  const { data, error } = await admin
+  const rich = await admin
     .from("school_courses")
-    .select("id, school_name, name, teacher, period")
+    .select("id, school_name, name, teacher, period, academic_year")
     .ilike("school_name", ilikeLiteral(school))
     .limit(1000);
+  let data = rich.data;
+  let error = rich.error;
+  if (error && /academic_year/i.test(error.message)) {
+    const plain = await admin
+      .from("school_courses")
+      .select("id, school_name, name, teacher, period")
+      .ilike("school_name", ilikeLiteral(school))
+      .limit(1000);
+    data = plain.data?.map((row) => ({ ...row, academic_year: null })) ?? null;
+    error = plain.error;
+  }
   if (error) {
     if (missing(error.message)) return "missing";
     throw new Error(error.message);
   }
   const key = schoolKey(school);
-  return (data ?? [])
-    .filter((row) => schoolKey(row.school_name) === key)
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      teacher: row.teacher ?? "",
-      period: row.period,
-    }));
+  const rows = (data ?? []).filter((row) => schoolKey(row.school_name) === key);
+  const counts = new Map<string, number>();
+  if (rows.length) {
+    const memberships = await admin
+      .from("user_courses")
+      .select("school_course_id")
+      .in(
+        "school_course_id",
+        rows.map((row) => row.id),
+      );
+    if (!memberships.error) {
+      for (const membership of memberships.data ?? []) {
+        counts.set(membership.school_course_id, (counts.get(membership.school_course_id) ?? 0) + 1);
+      }
+    }
+  }
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    teacher: row.teacher ?? "",
+    period: row.period,
+    school: row.school_name,
+    academicYear: "academic_year" in row ? row.academic_year : null,
+    members: counts.get(row.id) ?? 0,
+  }));
 }
 
 export async function findSchoolCourseSuggestions(
@@ -162,7 +192,13 @@ async function personalCourse(admin: Admin, profileId: string, name: string, tea
   return { id: data.id, name: data.name, color: data.color, teacher: data.teacher ?? teacher };
 }
 
-async function rememberLink(admin: Admin, profileId: string, courseId: string, schoolCourseId: string) {
+async function rememberLink(
+  admin: Admin,
+  profileId: string,
+  courseId: string,
+  schoolCourseId: string,
+  owner = false,
+) {
   const { error: joinError } = await admin.from("user_courses").upsert(
     { user_id: profileId, school_course_id: schoolCourseId },
     { onConflict: "user_id,school_course_id", ignoreDuplicates: true },
@@ -175,7 +211,25 @@ async function rememberLink(admin: Admin, profileId: string, courseId: string, s
     .eq("user_id", profileId);
   if (error && !missing(error.message)) throw new Error(error.message);
   if ((joinError && missing(joinError.message)) || (error && missing(error.message))) return false;
+  if (owner) {
+    const roleWrite = await admin
+      .from("user_courses")
+      .update({ role: "owner" })
+      .eq("user_id", profileId)
+      .eq("school_course_id", schoolCourseId);
+    if (roleWrite.error && !/role|schema cache/i.test(roleWrite.error.message)) throw new Error(roleWrite.error.message);
+  }
   return true;
+}
+
+function identity(school: string, row: SchoolCourseHit): Parameters<typeof canReuseClass>[0] {
+  return {
+    school: row.school ?? school,
+    name: row.name,
+    teacher: row.teacher,
+    period: row.period,
+    academicYear: row.academicYear ?? null,
+  };
 }
 
 async function exactSchoolCourse(
@@ -185,44 +239,64 @@ async function exactSchoolCourse(
   name: string,
   teacher: string,
   period: string | null,
+  year: string,
 ) {
+  const requested = { school, name, teacher, period, academicYear: year };
   const rows = await coursesAtSchool(admin, school);
   if (rows === "missing") return "missing" as const;
-  const found = rows.find(
-    (row) => sameText(row.name, name) && sameText(row.teacher, teacher) && sameText(row.period, period),
-  );
-  if (found) return found.id;
-  const { data, error } = await admin
+  const found = rows.find((row) => canReuseClass(identity(school, row), requested));
+  if (found) {
+    if (!parseAcademicYear(found.academicYear) && year) {
+      const stamped = await admin.from("school_courses").update({ academic_year: year }).eq("id", found.id);
+      if (stamped.error && !/academic_year/i.test(stamped.error.message)) throw new Error(stamped.error.message);
+    }
+    return { id: found.id, created: false, reused: true };
+  }
+  let inserted = await admin
     .from("school_courses")
     .insert({
       school_name: school,
       name,
       teacher,
       period,
+      academic_year: year,
       created_by: profileId,
     })
     .select("id")
     .single();
+  if (inserted.error && /academic_year/i.test(inserted.error.message)) {
+    inserted = await admin
+      .from("school_courses")
+      .insert({
+        school_name: school,
+        name,
+        teacher,
+        period,
+        created_by: profileId,
+      })
+      .select("id")
+      .single();
+  }
+  const { data, error } = inserted;
   if (error?.code === "23505") {
     const again = await coursesAtSchool(admin, school);
     if (again === "missing") return "missing" as const;
-    const retry = again.find(
-      (row) => sameText(row.name, name) && sameText(row.teacher, teacher) && sameText(row.period, period),
-    );
-    if (retry) return retry.id;
+    const retry = again.find((row) => canReuseClass(identity(school, row), requested));
+    if (retry) return { id: retry.id, created: false, reused: true };
   }
   if (error) {
     if (missing(error.message)) return "missing" as const;
     throw new Error(error.message);
   }
   if (!data) throw new Error("Couldn't save that class label.");
-  return data.id;
+  return { id: data.id, created: true, reused: false };
 }
 
 /**
  * Creates the student's own course, then links a school label.
  * Passing `schoolCourseId` is the only way to attach an existing near-match.
- * Without it, an existing row is reused only when name, teacher, and period are exact.
+ * Without it, an existing row is reused only when school, name, teacher, period,
+ * and academic year match. A different teacher, period, or year stays a new group.
  */
 export async function addExplicitCourse(profileId: string, input: CourseDraft): Promise<AddCourseResult> {
   const admin = createAdminClient();
@@ -231,6 +305,7 @@ export async function addExplicitCourse(profileId: string, input: CourseDraft): 
     let name: string;
     let teacher: string;
     let period: string | null;
+    let year = academicYearLabel();
     let selectedId: string | null = null;
 
     if (input.schoolCourseId) {
@@ -257,6 +332,11 @@ export async function addExplicitCourse(profileId: string, input: CourseDraft): 
       name = parsed.name;
       teacher = parsed.teacher;
       period = parsed.period;
+      if (input.academicYear) {
+        const parsedYear = parseAcademicYear(input.academicYear);
+        if (!parsedYear) return { ok: false, error: "Choose an academic year." };
+        year = parsedYear;
+      }
     }
 
     const course = await personalCourse(admin, profileId, name, teacher, selectedId);
@@ -268,18 +348,57 @@ export async function addExplicitCourse(profileId: string, input: CourseDraft): 
       };
     }
 
-    const schoolCourseId =
-      selectedId ?? (await exactSchoolCourse(admin, profileId, school, name, teacher, period));
-    if (schoolCourseId === "missing") {
+    const resolved = selectedId
+      ? { id: selectedId, created: false, reused: false }
+      : await exactSchoolCourse(admin, profileId, school, name, teacher, period, year);
+    if (resolved === "missing") {
       return { ok: true, course, notice: `${SCHOOL_COURSE_MIGRATION} Your class was still saved on your account.` };
     }
-    const linked = await rememberLink(admin, profileId, course.id, schoolCourseId);
+    const linked = await rememberLink(admin, profileId, course.id, resolved.id, resolved.created);
     if (!linked) {
       return { ok: true, course, notice: `${SCHOOL_COURSE_MIGRATION} Your class was still saved on your account.` };
     }
-    return { ok: true, course, notice: null };
+    return {
+      ok: true,
+      course,
+      notice: resolved.reused
+        ? "Joined the class that already matches this name, teacher, period, and year."
+        : null,
+    };
   } catch (error) {
     console.error("addExplicitCourse failed", error instanceof Error ? error.message : error);
     return { ok: false, error: "Couldn't create that class. Try again." };
   }
+}
+
+/** Links one of the student's courses to a school group without creating a second course. */
+export async function ensureLinkedSchoolCourse(profileId: string, courseId: string) {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("courses")
+    .select("id, name, teacher, is_unsorted, school_course_id")
+    .eq("id", courseId)
+    .eq("user_id", profileId)
+    .maybeSingle();
+  if (error) {
+    if (missing(error.message)) return { ok: false as const, error: SCHOOL_COURSE_MIGRATION };
+    throw new Error(error.message);
+  }
+  if (!data || data.is_unsorted) return { ok: false as const, error: "That class can't be shared." };
+  if (data.school_course_id) return { ok: true as const, schoolCourseId: data.school_course_id };
+  const school = await schoolName(admin, profileId);
+  if (!school) return { ok: false as const, error: "Add your school on your profile before inviting classmates." };
+  const resolved = await exactSchoolCourse(
+    admin,
+    profileId,
+    school,
+    clean(data.name),
+    clean(data.teacher),
+    null,
+    academicYearLabel(),
+  );
+  if (resolved === "missing") return { ok: false as const, error: SCHOOL_COURSE_MIGRATION };
+  const linked = await rememberLink(admin, profileId, courseId, resolved.id, resolved.created);
+  if (!linked) return { ok: false as const, error: SCHOOL_COURSE_MIGRATION };
+  return { ok: true as const, schoolCourseId: resolved.id };
 }

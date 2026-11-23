@@ -1,7 +1,7 @@
 /**
  * Suggestion ranking only. Nothing in here attaches or merges a course.
- * A row is the same course only when school, name, teacher, and period all match
- * after trimming and lowercasing — that check lives with the database write.
+ * A row is the same course only when school, name, teacher, period, and academic
+ * year all match after normalization — that check lives with the database write.
  * "AP Chem" and "AP Chemistry" stay different rows until a student clicks one.
  */
 
@@ -10,6 +10,9 @@ export type SchoolCourseHit = {
   name: string;
   teacher: string;
   period: string | null;
+  school?: string;
+  academicYear?: string | null;
+  members?: number;
 };
 
 const NAME_GENERIC = new Set([

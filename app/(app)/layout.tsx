@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { AppShell } from "@/components/app-shell";
@@ -10,6 +11,7 @@ import type { OnboardingMetadata } from "@/lib/onboarding";
 import { shouldAutoSync, syncFeed } from "@/lib/sync";
 import { FREE_BILLING } from "@/lib/billing-config";
 import { loadBilling } from "@/lib/subscription";
+import { CLASS_CODE, CLASS_INVITE_COOKIE } from "@/lib/class-match";
 import { noteReferralVisit } from "@/lib/referrals";
 import { getUserDb } from "@/lib/user-db";
 import { storedTimeZone } from "@/lib/user-timezone";
@@ -18,6 +20,8 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await auth.protect();
+  const pendingClass = (await cookies()).get(CLASS_INVITE_COOKIE)?.value ?? "";
+  if (CLASS_CODE.test(pendingClass)) redirect(`/c/${pendingClass}/resume`);
   const user = await currentUser();
   const meta = (user?.publicMetadata ?? {}) as OnboardingMetadata;
   if (!meta.onboardingComplete) redirect("/onboarding");

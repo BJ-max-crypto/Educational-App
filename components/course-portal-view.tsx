@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AssignmentRow } from "@/components/assignment-row";
-import { ClassLink } from "@/components/class-link";
+import { ClassInvite } from "@/components/class-invite";
 import { EnhanceClassLabels } from "@/components/class-label-enhance";
 import { CourseSelect } from "@/components/course-select";
 import { GlassCard } from "@/components/glass-card";
@@ -174,31 +174,34 @@ export function CoursePortalView({ courseId }: { courseId: string }) {
           ) : null}
         </GlassCard>
 
-        <GlassCard className="p-7">
-          <div className="flex items-center gap-3">
-            <h2 className="text-[22px] font-semibold text-[#14213d]">Members</h2>
-            <StatusChip tone="neutral">
-              {people.length} {people.length === 1 ? "member" : "members"}
-            </StatusChip>
-          </div>
-          {people.length > 0 ? (
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {people.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex flex-col items-center rounded-[22px] bg-white/60 px-2 py-4 text-center"
-                >
-                  <MemberAvatar initials={member.initials} color={member.color} size={52} />
-                  <p className="mt-2 text-[14px] font-medium text-[#14213d]">{member.name}</p>
-                  <p className="text-[12px] text-[#5b6478]">@{member.username}</p>
-                </div>
-              ))}
+        {course.isUnsorted ? (
+          <GlassCard className="p-7">
+            <div className="flex items-center gap-3">
+              <h2 className="text-[22px] font-semibold text-[#14213d]">Members</h2>
+              <StatusChip tone="neutral">
+                {people.length} {people.length === 1 ? "member" : "members"}
+              </StatusChip>
             </div>
-          ) : (
-            <p className="mt-4 text-[14px] text-[#5b6478]">Nobody you know is in this class yet.</p>
-          )}
-          {course.isUnsorted ? null : <ClassLink courseId={course.id} courseName={course.name} />}
-        </GlassCard>
+            {people.length > 0 ? (
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {people.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex flex-col items-center rounded-[22px] bg-white/60 px-2 py-4 text-center"
+                  >
+                    <MemberAvatar initials={member.initials} color={member.color} size={52} />
+                    <p className="mt-2 text-[14px] font-medium text-[#14213d]">{member.name}</p>
+                    <p className="text-[12px] text-[#5b6478]">@{member.username}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-[14px] text-[#5b6478]">Nobody you know is in this class yet.</p>
+            )}
+          </GlassCard>
+        ) : (
+          <ClassInvite courseId={course.id} courseName={course.name} friends={people} />
+        )}
       </div>
     </div>
   );

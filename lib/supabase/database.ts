@@ -230,6 +230,7 @@ export type Database = {
           name: string;
           teacher: string;
           period: string | null;
+          academic_year: string | null;
           created_by: string | null;
           created_at: string;
         };
@@ -239,6 +240,7 @@ export type Database = {
           name: string;
           teacher?: string;
           period?: string | null;
+          academic_year?: string | null;
           created_by?: string | null;
         };
         Update: {
@@ -246,13 +248,38 @@ export type Database = {
           name?: string;
           teacher?: string;
           period?: string | null;
+          academic_year?: string | null;
         };
         Relationships: [];
       };
       user_courses: {
-        Row: { user_id: string; school_course_id: string; created_at: string };
-        Insert: { user_id: string; school_course_id: string };
-        Update: { user_id?: string; school_course_id?: string };
+        Row: { user_id: string; school_course_id: string; role: string; created_at: string };
+        Insert: { user_id: string; school_course_id: string; role?: string };
+        Update: { user_id?: string; school_course_id?: string; role?: string };
+        Relationships: [];
+      };
+      class_invitations: {
+        Row: {
+          id: string;
+          school_course_id: string;
+          code: string;
+          created_by: string | null;
+          expires_at: string | null;
+          revoked_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          school_course_id: string;
+          code: string;
+          created_by?: string | null;
+          expires_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Update: {
+          revoked_at?: string | null;
+          expires_at?: string | null;
+        };
         Relationships: [];
       };
       school_classes: {

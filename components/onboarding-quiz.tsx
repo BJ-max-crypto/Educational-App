@@ -38,7 +38,7 @@ const steps: { id: StepId; question: string; hint?: string }[] = [
   {
     id: "classes",
     question: "Add your classes",
-    hint: "Type each class the way you want it named. The exact same name, teacher, and period can share a label later. A different spelling stays separate until you choose it.",
+    hint: "Type each class the way you want it named. The same name, teacher, period, and school year share one group. A different teacher, period, or year stays separate until you choose it.",
   },
   {
     id: "icalUrl",
@@ -145,7 +145,7 @@ export function OnboardingQuiz({ defaultName }: { defaultName: string }) {
         setError(saved.error);
         return;
       }
-      router.replace("/dashboard");
+      router.replace(saved.next ?? "/dashboard");
     });
   }
 

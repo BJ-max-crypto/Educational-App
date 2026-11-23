@@ -1,6 +1,7 @@
 "use server";
 
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { encryptSecret } from "@/lib/crypto";
 import {
   validateClassName,
@@ -15,11 +16,12 @@ import { addExplicitCourse } from "@/lib/school-courses";
 import { isSchoolMigrationError, SCHOOL_MIGRATION } from "@/lib/school-feed";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverConfigProblems } from "@/lib/supabase/env";
+import { CLASS_CODE, CLASS_INVITE_COOKIE } from "@/lib/class-match";
 import { attributeFromCookie } from "@/lib/referrals";
 import { syncFeed } from "@/lib/sync";
 import { isValidZone } from "@/lib/timezone";
 
-export type OnboardingResult = { ok: true } | { ok: false; error: string };
+export type OnboardingResult = { ok: true; next?: string } | { ok: false; error: string };
 
 export type SchoolSuggestion = { school: string; location: string | null };
 
@@ -238,5 +240,6 @@ async function saveOnboarding(input: OnboardingInput): Promise<OnboardingResult>
     if (!added.ok) return { ok: false, error: added.error };
   }
 
-  return { ok: true };
+  const pendingClass = (await cookies()).get(CLASS_INVITE_COOKIE)?.value ?? "";
+  return { ok: true, next: CLASS_CODE.test(pendingClass) ? `/c/${pendingClass}/resume` : undefined };
 }
