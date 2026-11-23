@@ -8,15 +8,15 @@ Coursework dashboard for Dashboard, Planner, Profile, and course portals. Clerk 
 2. Add the environment variables from `.env.example`. Use the same values as `.env.local`.
 3. `NEXT_PUBLIC_SUPABASE_URL` must be `https://<project-ref>.supabase.co`. A key that starts with `sb_publishable_` is not a URL. This project's ref is `cfpvxpfcrmzvuvmrwrkt`.
 4. In the Clerk dashboard, enable email and Google under User & Authentication → Social connections.
-5. This development instance signs in on Clerk's hosted Account Portal (`https://growing-hare-8761.accounts.dev`). Set `NEXT_PUBLIC_CLERK_SIGN_IN_URL` and `NEXT_PUBLIC_CLERK_SIGN_UP_URL` to those hosted URLs. Add the Vercel domain as an allowed redirect / home URL in Clerk → Paths, or sign-in will not return to the app.
-6. To use the in-app `/sign-in` and `/sign-up` pages instead, set those paths in the Clerk dashboard and point the two URL variables at `/sign-in` and `/sign-up`.
+5. Keep `NEXT_PUBLIC_CLERK_SIGN_IN_URL` and `NEXT_PUBLIC_CLERK_SIGN_UP_URL` as `/sign-in` and `/sign-up`. This development instance handshakes a browser token on the app's own domain. Sending people to `https://growing-hare-8761.accounts.dev` drops that token, and Clerk reports the browser as unauthenticated.
+6. In Clerk → Paths, set the sign-in and sign-up paths to this app's `/sign-in` and `/sign-up`, and set the home URL to the Vercel domain. The app also pins those paths in code so an old Account Portal URL in the environment does not take over.
 7. Set `FEED_ENCRYPTION_KEY` to the output of `openssl rand -base64 32`. Keep it stable: changing it makes stored iCal links unreadable.
 8. Set `ANTHROPIC_API_KEY` for the Planner summary. `ANTHROPIC_MODEL` is optional (default `claude-sonnet-5`).
 9. Deploy. Signed-out visits to the app are sent to the sign-in URL.
 
 ## Onboarding
 
-Clerk creates the account. `/sign-up` sends people to Clerk's hosted sign-up when `NEXT_PUBLIC_CLERK_SIGN_UP_URL` is a full URL, the same way `/sign-in` does. Otherwise it renders Clerk's `<SignUp />`.
+Clerk creates the account. `/sign-up` and `/sign-in` render Clerk's components on this app.
 
 After sign-up, users go to `/onboarding` until they finish the quiz: name, grade (6–12), school, school location, classes, and Schoology iCal link.
 
