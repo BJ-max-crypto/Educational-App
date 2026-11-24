@@ -7,7 +7,7 @@ import { useCoursework } from "@/lib/coursework";
 
 const permissionListeners = new Set<() => void>();
 
-function subscribePermission(onChange: () => void) {
+export function subscribePermission(onChange: () => void) {
   permissionListeners.add(onChange);
   return () => permissionListeners.delete(onChange);
 }
@@ -16,7 +16,7 @@ function emitPermission() {
   permissionListeners.forEach((onChange) => onChange());
 }
 
-function permission(): NotificationPermission | "unsupported" {
+export function notificationPermission(): NotificationPermission | "unsupported" {
   if (typeof Notification === "undefined") return "unsupported";
   return Notification.permission;
 }
@@ -25,7 +25,7 @@ export function showAssignmentAlerts(
   items: { id: string; title: string; dueAt: string; status: string; courseName: string | null }[],
   now: Date,
 ) {
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  if (notificationPermission() !== "granted") return;
   const notices = assignmentNotices(items, now.getTime(), clientTimeZone());
   for (const notice of notices) {
     const key = `pane-alert:${notice.tag}`;
@@ -83,7 +83,7 @@ export function AssignmentAlerts() {
   const { ready, now, assignments, courseById } = useCoursework();
 
   useEffect(() => {
-    if (!ready || !now || permission() !== "granted") return;
+    if (!ready || !now || notificationPermission() !== "granted") return;
     const items = assignments.map((item) => {
       const course = courseById.get(item.courseId);
       return {
@@ -103,7 +103,7 @@ export function AssignmentAlerts() {
 
 export function AssignmentAlertSetting() {
   const { ready, now, assignments, courseById } = useCoursework();
-  const state = useSyncExternalStore(subscribePermission, permission, () => "default" as const);
+  const state = useSyncExternalStore(subscribePermission, notificationPermission, () => "default" as const);
   const [busy, setBusy] = useState(false);
 
   async function turnOn() {
@@ -136,7 +136,7 @@ export function AssignmentAlertSetting() {
   return (
     <div className="border-b border-white/70 py-2.5 last:border-b-0">
       <div className="flex items-center justify-between gap-4">
-        <span className="text-[14px] text-[#5b6478]">Assignment alerts</span>
+        <span className="text-[14px] text-[#5b6478]">Notifications</span>
         <span className="flex items-center gap-3">
           <span className="text-right text-[14px] font-medium text-[#14213d]">{label}</span>
           {state === "default" ? (
@@ -153,7 +153,7 @@ export function AssignmentAlertSetting() {
         </span>
       </div>
       <p className="mt-1 text-right text-[12px] text-[#5b6478]">
-        A notification with the assignment name when it is due today, due tomorrow, or overdue.
+        Browser notifications for assignments that are due, class invitations, and connection requests.
       </p>
     </div>
   );

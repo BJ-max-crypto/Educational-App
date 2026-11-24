@@ -8,6 +8,7 @@ import { courseKey, normalizeUsername, sharedConnectionCounts, shareableKeys, va
 import { countSchoolmates, joinNamedClass } from "@/lib/school-feed";
 import { addExplicitCourse } from "@/lib/school-courses";
 import { validateClassName } from "@/lib/onboarding";
+import { sendWebPush } from "@/lib/send-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserDb } from "@/lib/user-db";
 
@@ -250,6 +251,16 @@ export async function requestConnection(profileId: string): Promise<Result> {
     if (/unique|duplicate/i.test(error.message)) return { ok: false, error: "They already have your request." };
     console.error("requestConnection failed", error.message);
     return { ok: false, error: "Couldn't send that request." };
+  }
+  const me = await who.admin.from("profiles").select("username").eq("id", who.profileId).maybeSingle();
+  const username = me.data?.username?.trim();
+  if (username) {
+    await sendWebPush(profileId, {
+      title: "Connection request",
+      body: `@${username} wants to connect.`,
+      tag: `pane-connect-${who.profileId}-${profileId}`,
+      url: "/profile/friends",
+    }).catch((error: unknown) => console.error("connection push failed", error));
   }
   revalidatePath("/", "layout");
   return { ok: true };
