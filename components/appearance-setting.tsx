@@ -1,7 +1,8 @@
 "use client";
 
 import { useLayoutEffect, useSyncExternalStore } from "react";
-import { THEMES, applyTheme, readTheme, storeTheme, type PaneTheme } from "@/lib/theme";
+import { usePathname } from "next/navigation";
+import { THEMES, applyTheme, isAuthPath, readTheme, storeTheme, type PaneTheme } from "@/lib/theme";
 import { cn } from "@/lib/cn";
 
 const listeners = new Set<() => void>();
@@ -16,11 +17,12 @@ function choose(theme: PaneTheme) {
   listeners.forEach((onChange) => onChange());
 }
 
-/** Puts the saved theme back on <html> after hydration. */
+/** Puts the saved theme back on <html> after hydration. Auth stays light. */
 export function ThemeSync() {
+  const pathname = usePathname();
   useLayoutEffect(() => {
-    applyTheme(readTheme());
-  }, []);
+    applyTheme(isAuthPath(pathname) ? "light" : readTheme());
+  }, [pathname]);
   return null;
 }
 

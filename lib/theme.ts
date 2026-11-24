@@ -28,8 +28,14 @@ export function readTheme(): PaneTheme {
   return "colorful";
 }
 
-/** Applies a theme before paint. Colorful is the original look, so it clears the attribute. */
-export const themeBootScript = `(function(){try{var t=localStorage.getItem("${THEME_KEY}");if(t!=="light"&&t!=="dark")return;document.documentElement.setAttribute("data-theme",t);var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute("content",t==="dark"?"${THEME_COLORS.dark}":"${THEME_COLORS.light}");}catch(e){}})();`;
+/** Sign-in and sign-up stay light even when the rest of Pane is dark or colorful. */
+export function isAuthPath(path: string) {
+  const name = path.split("?")[0] ?? "";
+  return name === "/sign-in" || name.startsWith("/sign-in/") || name === "/sign-up" || name.startsWith("/sign-up/");
+}
+
+/** Applies a theme before paint. Auth pages are light. Colorful clears the attribute. */
+export const themeBootScript = `(function(){try{var p=location.pathname;var meta=document.querySelector('meta[name="theme-color"]');if(p==="/sign-in"||p.indexOf("/sign-in/")===0||p==="/sign-up"||p.indexOf("/sign-up/")===0){document.documentElement.setAttribute("data-theme","light");if(meta)meta.setAttribute("content","${THEME_COLORS.light}");return;}var t=localStorage.getItem("${THEME_KEY}");if(t!=="light"&&t!=="dark")return;document.documentElement.setAttribute("data-theme",t);if(meta)meta.setAttribute("content",t==="dark"?"${THEME_COLORS.dark}":"${THEME_COLORS.light}");}catch(e){}})();`;
 
 export function applyTheme(theme: PaneTheme) {
   const root = document.documentElement;
