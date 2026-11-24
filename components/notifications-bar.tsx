@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { answerClassInvite, readIncomingClassInvites } from "@/app/(app)/class-actions";
 import { respondToConnection } from "@/app/(app)/member-actions";
+import { notificationPermission, subscribePermission } from "@/components/assignment-alerts";
 import type { IncomingClassInvite } from "@/lib/class-match";
 import { GlassCard } from "@/components/glass-card";
 import { publicLabel } from "@/lib/identity";
+import { showWebNotification } from "@/lib/web-notification";
 import { batchSimilar } from "@/lib/suggest";
 import { useCoursework } from "@/lib/coursework";
 
@@ -21,6 +23,7 @@ export function NotificationsBadge() {
   const [classInvites, setClassInvites] = useState<IncomingClassInvite[]>([]);
   const panel = useRef<HTMLDivElement>(null);
   const incoming = connections.filter((person) => person.status === "incoming");
+  const permission = useSyncExternalStore(subscribePermission, notificationPermission, () => "default" as const);
   const batches = useMemo(
     () =>
       batchSimilar(
@@ -42,6 +45,26 @@ export function NotificationsBadge() {
       current = false;
     };
   }, [incoming.length, pathname]);
+
+  useEffect(() => {
+    if (permission !== "granted") return;
+    for (const invite of classInvites) {
+      showWebNotification({
+        tag: `pane-class-${invite.id}`,
+        title: "Class invitation",
+        body: `@${invite.username} invited you to ${invite.courseName}.`,
+        url: "/dashboard",
+      });
+    }
+    for (const person of incoming) {
+      showWebNotification({
+        tag: `pane-connect-${person.id}`,
+        title: "Connection request",
+        body: `${publicLabel(person.name, person.username)} wants to connect.`,
+        url: "/profile/friends",
+      });
+    }
+  }, [permission, classInvites, incoming]);
 
   useEffect(() => {
     if (!shown) return;

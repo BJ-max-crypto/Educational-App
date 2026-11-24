@@ -23,5 +23,14 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const path = event.notification.data && event.notification.data.url ? event.notification.data.url : "/planner";
   const url = new URL(path, self.location.origin).href;
-  event.waitUntil(self.clients.openWindow(url));
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const open = clients.find((client) => "focus" in client);
+      if (open) {
+        open.postMessage({ type: "pane-open", url });
+        return open.focus();
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
 });

@@ -95,6 +95,47 @@ async function postPush(
   return response.status;
 }
 
+export type WebPushPayload = {
+  title: string;
+  body: string;
+  tag: string;
+  url: string;
+};
+
+/** Delivers one browser notification to every push subscription saved for this profile. */
+export async function sendWebPush(profileId: string, payload: WebPushPayload) {
+  const keys = vapid();
+  if (!keys) return { sent: 0 };
+  const admin = createAdminClient();
+  const subscriptions = await admin
+    .from("push_subscriptions")
+    .select("id, endpoint, p256dh, auth")
+    .eq("user_id", profileId);
+  if (subscriptions.error) {
+    if (!MISSING.test(subscriptions.error.message)) console.error("web push lookup failed", subscriptions.error.message);
+    return { sent: 0 };
+  }
+  const message = JSON.stringify({
+    title: payload.title.replace(/\s+/g, " ").trim().slice(0, 120),
+    body: payload.body.replace(/\s+/g, " ").trim().slice(0, 180),
+    tag: payload.tag.slice(0, 80),
+    url: payload.url.startsWith("/") ? payload.url : "/dashboard",
+  });
+  let sent = 0;
+  for (const subscription of subscriptions.data ?? []) {
+    const status = await postPush(subscription, message, keys).catch((error: unknown) => {
+      console.error("web push failed", error);
+      return 0;
+    });
+    if (status === 404 || status === 410) {
+      await admin.from("push_subscriptions").delete().eq("id", subscription.id);
+      continue;
+    }
+    if (status >= 200 && status < 300) sent += 1;
+  }
+  return { sent };
+}
+
 /** Sends due, tomorrow, and overdue assignment notifications for every saved subscription. */
 export async function dispatchAssignmentPushes(now = Date.now()) {
   const keys = vapid();

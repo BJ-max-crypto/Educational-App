@@ -6,6 +6,7 @@ import { nameForViewer } from "@/lib/identity";
 import { normalizeUsername } from "@/lib/members";
 import { schoolKey } from "@/lib/school-feed";
 import { addExplicitCourse } from "@/lib/school-courses";
+import { sendWebPush } from "@/lib/send-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const CLASS_MEMBER_INVITE_MIGRATION =
@@ -162,6 +163,16 @@ export async function inviteClassmate(
     if (saved.error.code === "23505") return { ok: true, state: "invited" };
     console.error("inviteClassmate failed", saved.error.message);
     return { ok: false, error: "Couldn't send that invitation." };
+  }
+  const me = await gate.admin.from("profiles").select("username").eq("id", profileId).maybeSingle();
+  const username = me.data?.username?.trim();
+  if (username) {
+    await sendWebPush(inviteeId, {
+      title: "Class invitation",
+      body: `@${username} invited you to ${gate.group.name}`,
+      tag: `pane-class-${gate.group.id}-${inviteeId}`,
+      url: "/dashboard",
+    }).catch((error: unknown) => console.error("class invite push failed", error));
   }
   return { ok: true, state: "invited" };
 }
